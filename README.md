@@ -45,7 +45,10 @@ Keep the shared `beats/` library modest; hosts' free terms don't allow using the
 | Levels | مبتدی / متوسط / پیشرفته / حرفه‌ای (presets of fill + scheme) |
 | Ball speed | half / normal / double |
 | Word lists | همه · روزمره · ادبی · خیابونی, plus a **clean mode** filter |
-| Beats | 6 original beats synthesized live (Web Audio) + upload your own MP3/WAV/M4A |
+| Beats | 13 original beats synthesized live (Web Audio) + CC-licensed MP3 library + upload your own MP3/WAV/M4A |
+| **Beat library** | search, sort (suggested / most played / newest / fastest / slowest / name), genre, mood «حال‌وهوا», tempo range, favourites ♥, random 🎲, waveform, length, play count, "new" badge |
+| **Per-beat settings** | built-in: tempo 85–115 %, layers (full / drums only / no drums) · MP3: skip intro (auto-detected), auto loudness levelling, "full track" length · global Auto Half-Time (>115 BPM → half-speed ball) |
+| Endless playlist | rotates through the beats you filtered (e.g. only favourites) |
 | Themes | پوستر خیابونی (default) · نوار کاست · شب کاشی |
 | Review | bars, time, every rhyme used; replay with same or new words |
 | Audio-lag calibration | Settings → for Bluetooth headphones |

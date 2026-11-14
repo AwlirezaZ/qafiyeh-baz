@@ -4,7 +4,7 @@
  * - Fonts, icons, beat MP3s: cache first → fast, and offline after the first play.
  * Bump VERSION to drop old caches.
  */
-const VERSION = "v1";
+const VERSION = "v2";
 const SHELL = `qb-shell-${VERSION}`;
 const MEDIA = `qb-media-${VERSION}`;
 

@@ -305,6 +305,7 @@ svg { width: 1.2em; height: 1.2em; flex: none; }
   display: grid; grid-template-columns: 1fr 1fr; gap: 28px 40px; align-items: start;
 }
 .setup-col { display: flex; flex-direction: column; gap: 28px; min-width: 0; }
+.field { min-width: 0; }   /* lets the horizontally scrolling chip rows shrink instead of widening the page */
 .field-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
 .field-head h3 { margin: 0; font-size: 20px; }
 .field-num {
@@ -376,6 +377,28 @@ svg { width: 1.2em; height: 1.2em; flex: none; }
 .beat-filter .chip span { display: inline-flex; align-items: center; gap: 6px; }
 .beat-filter .count { font-size: 12px; opacity: .6; font-weight: 500; }
 
+/* beat library toolbar */
+.beat-tools { display: flex; gap: 8px; margin-bottom: 12px; }
+.beat-search {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; height: 42px; padding: 0 12px;
+  background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius); color: var(--muted);
+}
+.beat-search:focus-within { border-color: var(--accent); }
+.beat-search svg { width: 18px; height: 18px; }
+.beat-search input { flex: 1; min-width: 0; height: 100%; background: transparent; border: 0; outline: none; color: var(--text); }
+.beat-search input::placeholder { color: var(--muted); opacity: .8; }
+#beatSort {
+  height: 42px; padding: 0 12px; background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius);
+  color: var(--text); font-size: 14px; cursor: pointer;
+}
+#beatSort:focus { border-color: var(--accent); outline: none; }
+.chip-sep { flex: none; width: 1.5px; align-self: stretch; margin: 4px 4px; background: var(--line); }
+.fav-chip svg.i-heart { width: 14px; height: 14px; }
+.beat-count { margin: 0 0 10px; color: var(--muted); font-size: 13.5px; }
+.link-btn { padding: 0; background: none; border: 0; color: var(--accent); font-size: inherit; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.endless-note { margin-top: 12px; }
+.empty-list { padding: 18px; text-align: center; border: 1.5px dashed var(--line); border-radius: var(--radius); }
+
 /* beat cards */
 .beat-list { display: grid; gap: 10px; }
 .beat-card {
@@ -413,6 +436,41 @@ svg { width: 1.2em; height: 1.2em; flex: none; }
 .beat-del { display: grid; place-items: center; width: 36px; height: 36px; padding: 0; background: transparent; border: 0; color: var(--muted); border-radius: var(--radius); }
 .beat-del:hover { color: var(--r3); background: var(--surface-2); }
 .mine-head h4 { margin: 18px 0 8px; color: var(--muted); font-size: 14px; font-weight: 500; }
+
+/* richer card parts */
+.beat-genre { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.beat-genre .mood { padding: 0 7px; border: 1px solid var(--line); border-radius: 999px; font-size: 11.5px; line-height: 1.6; }
+.beat-name { display: flex; align-items: center; gap: 8px; }
+.badge-new { flex: none; padding: 1px 7px; background: var(--r1); color: var(--on-r); font-family: var(--font-body); font-size: 11px; font-weight: 900; line-height: 1.5; border-radius: var(--radius); }
+.beat-name .tag { flex: none; padding: 0 6px; border: 1px solid var(--accent); color: var(--accent); font-family: var(--font-body); font-size: 11px; font-weight: 700; border-radius: var(--radius); }
+.beat-wave-wrap { display: block; margin-top: 6px; }
+.beat-wave { display: block; width: 100%; max-width: 220px; height: 18px; fill: var(--muted); opacity: .55; }
+.beat-wave.is-empty { opacity: .3; }
+.beat-card.is-on .beat-wave { fill: var(--accent); opacity: .95; }
+.beat-bpm .beat-len, .beat-bpm .beat-plays { font-family: var(--font-body); font-size: 11px; color: var(--muted); margin-top: 2px; white-space: nowrap; }
+.beat-side { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.beat-fav { display: grid; place-items: center; width: 36px; height: 36px; padding: 0; background: transparent; border: 0; color: var(--line); border-radius: var(--radius); transition: color .15s, transform .15s; }
+.beat-fav svg { width: 20px; height: 20px; }
+.beat-fav:hover { color: var(--muted); }
+.beat-fav.is-on { color: var(--r3); }
+.beat-fav.is-on:active { transform: scale(.85); }
+.beat-card.is-pinned { border-style: dashed; }
+
+/* inline settings for the selected beat */
+.beat-settings {
+  display: grid; gap: 12px; margin: -4px 0 6px; padding: 14px 16px;
+  background: var(--surface-2); border: 1.5px solid var(--line); border-top: 0;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+[data-theme="poster"] .beat-settings { border-color: var(--accent); margin-top: 2px; }
+.bs-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 14px; }
+.bs-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; }
+.bs-row > label { min-width: 72px; font-size: 14px; color: var(--muted); }
+.bs-row input[type="range"] { flex: 1; min-width: 140px; }
+.bs-row output { min-width: 128px; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+.bs-row .seg-btn { min-height: 36px; padding: 4px 12px; font-size: 13.5px; }
+.bs-hint { margin: 0; color: var(--muted); font-size: 12.5px; }
+.bs-toggle { margin-top: 0; font-size: 14px; }
 
 .upload-card {
   display: flex; align-items: center; gap: 14px; margin-top: 12px; padding: 16px;

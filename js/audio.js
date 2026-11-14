@@ -86,11 +86,11 @@
   }
 
   /* ---------- Kit: one instance per playing session ---------- */
-  function Kit(ctx, vol) {
+  function Kit(ctx, vol, dest) {
     this.ctx = ctx;
     this.out = ctx.createGain();
     this.out.gain.value = vol == null ? 1 : vol;
-    this.out.connect(A.master);
+    this.out.connect(dest || A.master);
     this.drums = ctx.createGain(); this.drums.gain.value = 0.95; this.drums.connect(this.out);
     this.music = ctx.createGain(); this.music.gain.value = 0.55; this.music.connect(this.out);
     this.verb = ctx.createConvolver(); this.verb.buffer = A.impulse;
@@ -715,9 +715,85 @@
   var FAM = { boombap: 0, trap: 1, persian: 2, other: 3 };
   BEATS.sort(function (a, b) { return FAM[a.family] - FAM[b.family]; });
   QB.BEAT_FAMILIES = [["all", "همه"], ["boombap", "بوم‌بپ"], ["trap", "ترپ و دریل"], ["persian", "ایرانی"], ["other", "بقیه"]];
+  QB.MOODS = [["dark", "تاریک"], ["heavy", "سنگین"], ["energetic", "پرانرژی"], ["chill", "آروم"], ["nostalgic", "نوستالژی"], ["happy", "شاد"]];
+
+  /* moods, loudness trim (measured after the master chain, target ≈ −10 dB RMS) and date added */
+  var NEW = "2026-11-14";
+  var META = {
+    boombap:   { moods: ["nostalgic", "chill"],     level: 1.24 },
+    golden:    { moods: ["nostalgic", "energetic"], level: 1.30, added: NEW },
+    kooche:    { moods: ["chill", "happy"],         level: 1.00, added: NEW },
+    bomb:      { moods: ["dark", "heavy"],          level: 1.29, added: NEW },
+    trap:      { moods: ["dark"],                   level: 0.80 },
+    drill:     { moods: ["dark", "heavy"],          level: 0.77 },
+    atish:     { moods: ["energetic", "heavy"],     level: 0.79, added: NEW },
+    khashm:    { moods: ["energetic", "heavy"],     level: 0.81, added: NEW },
+    santur:    { moods: ["nostalgic", "dark"],      level: 0.79 },
+    zurkhaneh: { moods: ["heavy", "energetic"],     level: 1.60 },
+    lofi:      { moods: ["chill"],                  level: 1.45 },
+    gfunk:     { moods: ["happy", "chill"],         level: 0.95, added: NEW },
+    oldschool: { moods: ["happy", "energetic"],     level: 1.00, added: NEW }
+  };
+  BEATS.forEach(function (b) { var m = META[b.id] || {}; b.moods = m.moods || []; b.level = m.level || 1; b.added = m.added || null; });
 
   QB.BEATS = BEATS;
   QB.beatById = function (id) { for (var i = 0; i < BEATS.length; i++) if (BEATS[i].id === id) return BEATS[i]; return null; };
+
+  /* A playable copy of a beat with per-beat settings applied:
+     tempo (0.85–1.15×), layers ("all" | "drums" | "nodrums") */
+  QB.beatVariant = function (beat, o) {
+    o = o || {};
+    var v = Object.create(beat), tempo = o.tempo || 1;
+    v.bpm = Math.round(beat.bpm * tempo * 10) / 10;
+    if (o.layers === "drums") v.music = function () {};
+    if (o.layers === "nodrums") v.drums = function () {};
+    return v;
+  };
+
+  /* Small waveform for a beat card: renders 2 bars offline (no sound) → 40 peaks 0..1 */
+  QB.beatWave = function (beat) {
+    var sr = A.ensure().sampleRate, sd = 60 / beat.bpm / 4, secs = 32 * sd + 0.3;   // reverb buffer needs the same rate
+    var oc = new OfflineAudioContext(1, Math.ceil(sr * secs), sr);
+    var k = new Kit(oc, 1, oc.destination);
+    for (var bar = 0; bar < 2; bar++) for (var s = 0; s < 16; s++) {
+      var t = 0.02 + (bar * 16 + s) * sd + (s % 2 ? (beat.swing || 0) * sd : 0);
+      beat.drums(k, bar, s, t, sd); beat.music(k, bar, s, t, sd);
+    }
+    return oc.startRendering().then(function (buf) { return QB.peaks(buf, 40); });
+  };
+  QB.peaks = function (buf, n) {
+    var d = buf.getChannelData(0), step = Math.floor(d.length / n), out = [], max = 0;
+    for (var i = 0; i < n; i++) {
+      var p = 0;
+      for (var j = i * step; j < (i + 1) * step; j += 4) { var a = Math.abs(d[j]); if (a > p) p = a; }
+      out.push(p); if (p > max) max = p;
+    }
+    return out.map(function (p) { return max ? Math.round(p / max * 100) / 100 : 0; });
+  };
+
+  /* Bars of quiet intro before the beat really starts (0–8), from per-bar loudness */
+  QB.detectIntro = function (buf, bpm, offset) {
+    var sr = buf.sampleRate, d = buf.getChannelData(0), barLen = Math.floor(240 / bpm * sr), start = Math.floor((offset || 0) * sr);
+    var rms = [];
+    for (var b = 0; b < 24; b++) {
+      var a = start + b * barLen, e = 0, n = 0;
+      if (a + barLen > d.length) break;
+      for (var i = a; i < a + barLen; i += 8) { e += d[i] * d[i]; n++; }
+      rms.push(Math.sqrt(e / n));
+    }
+    if (rms.length < 8) return 0;
+    var sorted = rms.slice(4).sort(function (x, y) { return x - y; }), ref = sorted[Math.floor(sorted.length / 2)];
+    for (var k = 0; k < Math.min(8, rms.length); k++) if (rms[k] >= ref * 0.62) return k;
+    return 0;
+  };
+  /* Loudness trim for an MP3 so all beats play at a similar level */
+  QB.bufferLevel = function (buf) {
+    var d = buf.getChannelData(0), e = 0, n = 0;
+    for (var i = 0; i < d.length; i += 16) { e += d[i] * d[i]; n++; }
+    var rms = Math.sqrt(e / Math.max(1, n));
+    if (!rms) return 1;
+    return Math.max(0.5, Math.min(2, 0.2 / rms));   // ≈ −14 dBFS RMS target before the master chain
+  };
 
   /* metronome "beat" for tap mode */
   var CLICK_BEAT = {
@@ -745,7 +821,7 @@
 
     if (opts.kind === "buffer") {
       var src = ctx.createBufferSource(); src.buffer = opts.buffer;
-      var g = this.kit.gain(this.kit.out); g.gain.value = 1;
+      var g = this.kit.gain(this.kit.out); g.gain.value = opts.gain || 1;
       src.connect(g);
       src.start(t0, Math.max(0, opts.offset || 0));
       this.kit.sources.push(src);
@@ -764,6 +840,8 @@
       this.beatIndex = 0;
       this.segments.push({ t0: t0, bar0: 0, bpm: beat.bpm, beat: beat });
       if (beat.vinyl) this.kit.vinyl(t0, true);
+      this.vol = opts.volume == null ? 1 : opts.volume;
+      this.kit.out.gain.value = this.vol * (beat.level || 1);
     }
     this.bar = 0; this.step = 0; this.nextTime = t0;
     var self2 = this;
@@ -829,6 +907,7 @@
       var nb = o.beats[this.beatIndex];
       this.beat = nb;
       this.segments.push({ t0: this.nextTime, bar0: this.bar, bpm: nb.bpm, beat: nb });
+      this.kit.out.gain.setValueAtTime(this.vol * (nb.level || 1), this.nextTime);
     }
     if (this.endBar != null && this.bar > this.endBar) {
       var self = this, when = this.nextTime;

@@ -10,7 +10,8 @@
   var DEFAULTS = {
     mode: "classic", level: "beginner", fill: "all", scheme: "aabb", speed: 1,
     list: "all", clean: false, beat: "golden", beatFilter: "all", bars: 16, switchEvery: 16,
-    tapBpm: 90, click: false, theme: "poster", lag: 0, rec: false, cam: true
+    tapBpm: 90, click: false, theme: "poster", lag: 0, rec: false, cam: true,
+    beatMood: "all", beatTempo: "all", beatSort: "suggested", onlyFavs: false, favs: [], beatOpts: {}, autoHalf: true
   };
   var S = {};
   try { S = JSON.parse(localStorage.getItem("qb.settings") || "{}") || {}; } catch (e) { S = {}; }
@@ -201,14 +202,36 @@
 
   /* beat descriptors shown in the picker */
   var library = QB.BEATS.map(function (b) {
-    return { id: b.id, kind: "synth", family: b.family, name: b.name, genre: b.genre, vibe: b.vibe, bpm: b.bpm };
+    return { id: b.id, kind: "synth", family: b.family, name: b.name, genre: b.genre, vibe: b.vibe, bpm: b.bpm,
+             moods: b.moods, added: b.added };
   });
   var mine = [];          // user uploads (IndexedDB)
   var decoded = {};       // id -> AudioBuffer cache
+  var waves = {};         // id -> [peaks]
 
   function findBeat(id) {
     return library.concat(mine).filter(function (b) { return b.id === id; })[0] || null;
   }
+  function beatOpts(id) { return (S.beatOpts && S.beatOpts[id]) || {}; }
+  function setBeatOpt(id, k, v) {
+    S.beatOpts = S.beatOpts || {};
+    var o = S.beatOpts[id] = Object.assign({}, S.beatOpts[id]);
+    if (v == null) delete o[k]; else o[k] = v;
+    if (!Object.keys(o).length) delete S.beatOpts[id];
+    save();
+  }
+  /* bpm the player will actually hear (tempo setting applies to built-in beats) */
+  function effBpm(b) { return b.bpm ? b.bpm * (b.kind === "synth" ? (beatOpts(b.id).tempo || 1) : 1) : null; }
+  function synthFor(id) { return QB.beatVariant(QB.beatById(id), beatOpts(id)); }
+  function isNew(b) { return b.added && (Date.now() - new Date(b.added + "T00:00:00")) < 30 * 864e5; }
+  function isFav(id) { return (S.favs || []).indexOf(id) >= 0; }
+  function introBars(b) { var o = beatOpts(b.id); return o.skip != null ? o.skip : (b.intro || 0); }
+  /* everything needed to play an MP3 beat with its settings */
+  function bufferSource(b, buf) {
+    var bar = 240 / b.bpm;
+    return { kind: "buffer", buffer: buf, bpm: b.bpm, offset: (b.offset || 0) + introBars(b) * bar, name: b.name, gain: b.level || 1 };
+  }
+  function fmtTime(s) { s = Math.round(s); return fa(Math.floor(s / 60)) + ":" + QB.pad2(s % 60); }
 
   function loadBuffer(desc) {
     if (decoded[desc.id]) return Promise.resolve(decoded[desc.id]);
@@ -219,21 +242,32 @@
       return new Promise(function (res, rej) { ctx.decodeAudioData(ab, res, rej); });
     }).then(function (buf) {
       decoded[desc.id] = buf;
-      ensureTempo(desc, buf);
+      ensureMeta(desc, buf);
       return buf;
     });
   }
 
-  /* library beats listed without bpm/offset get measured once, then cached */
-  function ensureTempo(desc, buf) {
-    if (desc.bpm) return;
-    var key = "qb.tempo." + desc.src, r = null;
-    try { r = JSON.parse(localStorage.getItem(key) || "null"); } catch (e) {}
-    if (!r || !r.bpm) {
-      r = QB.detectTempo(buf);
-      try { localStorage.setItem(key, JSON.stringify(r)); } catch (e) {}
-    }
-    desc.bpm = r.bpm; desc.offset = r.offset;
+  /* MP3 beats: measure tempo (if not given), intro length, loudness, duration and waveform once, then cache */
+  function metaKey(desc) { return "qb.meta." + (desc.src || desc.id); }
+  function readMeta(desc) { try { return JSON.parse(localStorage.getItem(metaKey(desc)) || "null"); } catch (e) { return null; } }
+  function applyMeta(desc, m) {
+    if (!m) return;
+    if (!desc.bpm && m.bpm) { desc.bpm = m.bpm; desc.offset = m.offset; }
+    if (m.intro != null) desc.intro = m.intro;
+    if (m.level) desc.level = m.level;
+    if (m.dur) desc.dur = m.dur;
+    if (m.wave) waves[desc.id] = m.wave;
+  }
+  function ensureMeta(desc, buf) {
+    var m = readMeta(desc) || {};
+    if (!desc.bpm && !m.bpm) { var r = QB.detectTempo(buf); m.bpm = r.bpm; m.offset = r.offset; }
+    var bpm = desc.bpm || m.bpm, off = desc.bpm ? desc.offset : m.offset;
+    if (m.intro == null) m.intro = QB.detectIntro(buf, bpm, off);
+    if (!m.level) m.level = Math.round(QB.bufferLevel(buf) * 100) / 100;
+    if (!m.dur) m.dur = Math.round(buf.duration);
+    if (!m.wave) m.wave = QB.peaks(buf, 40);
+    try { localStorage.setItem(metaKey(desc), JSON.stringify(m)); } catch (e) {}
+    applyMeta(desc, m);
     if (current === "setup") { renderBeats(); updateSummary(); }
   }
 
@@ -251,17 +285,20 @@
         })).then(function (found) {
           found.forEach(function (f) {
             if (!f) return;
-            var e = f.e, cached = null;
-            try { cached = JSON.parse(localStorage.getItem("qb.tempo." + f.src) || "null"); } catch (x) {}
+            var e = f.e;
             var credit = [e.artist, e.license].filter(Boolean).join(" · ");
-            library.push({ id: "lib-" + e.file, kind: "file", src: f.src, name: e.name || e.file, family: e.family || null,
-                           genre: e.genre || "بیت", vibe: e.vibe ? e.vibe + (credit ? " · " + credit : "") : credit,
-                           bpm: +e.bpm || (cached && cached.bpm) || null,
-                           offset: e.bpm ? (+e.offset || 0) : ((cached && cached.offset) || 0) });
+            var desc = { id: "lib-" + e.file, kind: "file", src: f.src, name: e.name || e.file, family: e.family || null,
+                         genre: e.genre || "بیت", vibe: e.vibe ? e.vibe + (credit ? " · " + credit : "") : credit,
+                         artist: e.artist || "", moods: e.moods || [], added: e.added || null,
+                         bpm: +e.bpm || null, offset: +e.offset || 0 };
+            applyMeta(desc, readMeta(desc));
+            library.push(desc);
           });
-          if (current === "setup") renderBeats();
         });
-      }).catch(function () {});
+      }).catch(function () {}).then(function () {
+        libReady.manifest = true;
+        renderBeats(); renderLengths(); updateSummary();
+      });
   }
 
   /* ---------- setup screen ---------- */
@@ -333,53 +370,196 @@
     var box = $("#lengthChips"); box.innerHTML = "";
     if (S.mode === "classic") {
       $("#lengthTitle").textContent = "چند بار؟";
+      var sel = findBeat(S.beat), isTrack = sel && sel.kind !== "synth";
+      if (S.bars === "full" && sel && !isTrack) S.bars = 16;   // (sel unknown = library still loading → keep)
       [8, 16, 32, 64].forEach(function (n) {
-        var b = chip(fa(n), n === 8 ? "زیر یه دقیقه" : n === 64 ? "یه ترک کامل" : "بار", S.bars === n, { bars: n });
+        var b = chip(fa(n), n === 8 ? "زیر یه دقیقه" : n === 64 ? "خیلی طولانی" : "بار", S.bars === n, { bars: n });
         box.appendChild(b);
       });
+      if (isTrack) box.appendChild(chip("کل ترک", sel.dur ? fmtTime(sel.dur) : "تا آخر آهنگ", S.bars === "full", { bars: "full" }));
     } else {
       $("#lengthTitle").textContent = "هر چند بار بیت عوض شه؟";
       [8, 16, 32].forEach(function (n) { box.appendChild(chip(fa(n), "بار", S.switchEvery === n, { every: n })); });
     }
   }
 
-  function beatCard(b) {
-    var el = document.createElement("div");
-    el.className = "beat-card" + (S.beat === b.id ? " is-on" : "");
+  var MOOD_LABEL = {}; QB.MOODS.forEach(function (m) { MOOD_LABEL[m[0]] = m[1]; });
+  var TEMPOS = [["all", "هر سرعتی"], ["slow", "زیر ۸۰"], ["mid", "۸۰ تا ۹۵"], ["fast", "بالای ۹۵"]];
+  var SORTS = [["suggested", "پیشنهادی"], ["played", "بیشترین بازی"], ["new", "جدیدترین"], ["fast", "تندترین"], ["slow", "آروم‌ترین"], ["name", "اسم"]];
+  var beatQuery = "";
+
+  function waveSVG(peaks) {
+    if (!peaks) return '<svg class="beat-wave is-empty" viewBox="0 0 160 20" preserveAspectRatio="none" aria-hidden="true"><rect x="0" y="9.5" width="160" height="1"/></svg>';
+    var w = 160 / peaks.length;
+    return '<svg class="beat-wave" viewBox="0 0 160 20" preserveAspectRatio="none" aria-hidden="true">' + peaks.map(function (p, i) {
+      var h = Math.max(1.5, p * 20); return '<rect x="' + (i * w + 0.6).toFixed(1) + '" y="' + ((20 - h) / 2).toFixed(1) + '" width="' + (w - 1.2).toFixed(1) + '" height="' + h.toFixed(1) + '"/>';
+    }).join("") + "</svg>";
+  }
+
+  function beatCard(b, plays) {
+    var el = document.createElement("div"), on = S.beat === b.id, bpm = effBpm(b), fav = isFav(b.id);
+    el.className = "beat-card" + (on ? " is-on" : "");
     el.dataset.beat = b.id;
     el.tabIndex = 0;
     el.setAttribute("role", "button");
-    el.setAttribute("aria-pressed", S.beat === b.id);
+    el.setAttribute("aria-pressed", on);
+    var moods = (b.moods || []).map(function (m) { return '<span class="mood">' + MOOD_LABEL[m] + "</span>"; }).join("");
+    var tempoTag = b.kind === "synth" && (beatOpts(b.id).tempo || 1) !== 1 ? '<span class="tag">' + fa(Math.round((beatOpts(b.id).tempo) * 100)) + "٪</span>" : "";
     el.innerHTML =
-      '<button type="button" class="beat-play" data-preview="' + b.id + '" aria-label="پیش‌نمایش"><svg><use href="#i-play"/></svg></button>' +
-      '<div class="beat-info"><span class="beat-genre">' + esc(b.genre) + '</span><b class="beat-name">' + esc(b.name) + "</b>" +
-      (b.vibe ? '<span class="beat-vibe">' + esc(b.vibe) + "</span>" : "") + "</div>" +
-      '<span class="beat-bpm"><b>' + (b.bpm ? fa(Math.round(b.bpm)) : "؟") + "</b><small>BPM</small></span>" +
-      (b.kind === "mine" ? '<button type="button" class="beat-del" data-del="' + b.id + '" aria-label="حذف"><svg><use href="#i-trash"/></svg></button>' : "");
+      '<button type="button" class="beat-play" data-preview="' + b.id + '" aria-label="پیش‌نمایش ' + esc(b.name) + '"><svg><use href="#i-play"/></svg></button>' +
+      '<div class="beat-info">' +
+        '<span class="beat-genre">' + esc(b.genre) + moods + "</span>" +
+        '<b class="beat-name">' + esc(b.name) + (isNew(b) ? '<span class="badge-new">جدید</span>' : "") + tempoTag + "</b>" +
+        (b.vibe ? '<span class="beat-vibe">' + esc(b.vibe) + "</span>" : "") +
+        '<span class="beat-wave-wrap" data-wave="' + b.id + '">' + waveSVG(waves[b.id]) + "</span>" +
+      "</div>" +
+      '<span class="beat-bpm"><b>' + (bpm ? fa(Math.round(bpm)) : "؟") + "</b><small>BPM</small>" +
+        (b.dur ? '<small class="beat-len">' + fmtTime(b.dur) + "</small>" : "") +
+        (plays ? '<small class="beat-plays">' + fa(plays) + "× بازی</small>" : "") + "</span>" +
+      '<span class="beat-side">' +
+        '<button type="button" class="beat-fav' + (fav ? " is-on" : "") + '" data-fav="' + b.id + '" aria-pressed="' + fav + '" aria-label="' + (fav ? "حذف از علاقه‌مندی‌ها" : "افزودن به علاقه‌مندی‌ها") + '"><svg><use href="#i-heart"/></svg></button>' +
+        (b.kind === "mine" ? '<button type="button" class="beat-del" data-del="' + b.id + '" aria-label="حذف"><svg><use href="#i-trash"/></svg></button>' : "") +
+      "</span>";
     return el;
   }
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
 
   function inFilter(b) { return S.beatFilter === "all" || b.family === S.beatFilter; }
+  function tempoOk(b) {
+    var t = effBpm(b); if (S.beatTempo === "all" || !t) return S.beatTempo === "all" || !t;
+    return S.beatTempo === "slow" ? t < 80 : S.beatTempo === "mid" ? t >= 80 && t <= 95 : t > 95;
+  }
+  function matchesQuery(b) {
+    if (!beatQuery) return true;
+    var hay = [b.name, b.genre, b.vibe, b.artist].concat((b.moods || []).map(function (m) { return MOOD_LABEL[m]; })).join(" ").toLowerCase();
+    return beatQuery.toLowerCase().split(/\s+/).every(function (w) { return hay.indexOf(w) >= 0; });
+  }
+  function filtersActive() { return S.beatFilter !== "all" || S.beatMood !== "all" || S.beatTempo !== "all" || S.onlyFavs || !!beatQuery; }
+  /* the list the picker shows (and Endless rotates through) */
+  function visibleBeats() {
+    var plays = Stats.load().beats;
+    var pool = library.concat(S.mode === "classic" ? mine : []);
+    var list = pool.filter(function (b) {
+      return (S.mode !== "endless" || b.kind === "synth") && inFilter(b) &&
+             (S.beatMood === "all" || (b.moods || []).indexOf(S.beatMood) >= 0) &&
+             tempoOk(b) && (!S.onlyFavs || isFav(b.id)) && matchesQuery(b);
+    });
+    var by = {
+      played: function (a, b) { return (plays[b.name] || 0) - (plays[a.name] || 0); },
+      new: function (a, b) { return (b.added || "").localeCompare(a.added || ""); },
+      fast: function (a, b) { return (effBpm(b) || 0) - (effBpm(a) || 0); },
+      slow: function (a, b) { return (effBpm(a) || 999) - (effBpm(b) || 999); },
+      name: function (a, b) { return a.name.localeCompare(b.name, "fa"); }
+    }[S.beatSort];
+    if (by) list = list.slice().sort(by);
+    return { list: list, plays: plays };
+  }
 
+  var libReady = { manifest: location.protocol === "file:", mine: false };
   function renderBeats() {
+    // don't drop a selected MP3/upload while those lists are still loading
+    var waiting = (/^lib-/.test(S.beat) && !libReady.manifest) || (/^mine-/.test(S.beat) && !libReady.mine);
+    if (!waiting && (!findBeat(S.beat) || (S.mode === "endless" && findBeat(S.beat).kind !== "synth"))) S.beat = "golden";
+    var base = library.filter(function (b) { return S.mode !== "endless" || b.kind === "synth"; });
+    // genre chips
     var fbox = $("#beatFilter"); fbox.innerHTML = "";
     QB.BEAT_FAMILIES.forEach(function (f) {
-      var n = library.filter(function (b) { return (f[0] === "all" || b.family === f[0]) && (S.mode !== "endless" || b.kind === "synth"); }).length;
-      var c = chip(f[1] + " <small class=\"count\">" + fa(n) + "</small>", "", S.beatFilter === f[0], { bfilter: f[0] });
-      c.classList.add("sm");
-      fbox.appendChild(c);
+      var n = base.filter(function (b) { return f[0] === "all" || b.family === f[0]; }).length;
+      var c = chip(f[1] + ' <small class="count">' + fa(n) + "</small>", "", S.beatFilter === f[0], { bfilter: f[0] });
+      c.classList.add("sm"); fbox.appendChild(c);
     });
-    var box = $("#beatList"); box.innerHTML = "";
-    var list = library.filter(function (b) { return inFilter(b) && (S.mode !== "endless" || b.kind === "synth"); });
-    list.forEach(function (b) { box.appendChild(beatCard(b)); });
-    var mbox = $("#mineList"); mbox.innerHTML = "";
-    var showMine = S.mode === "classic" && mine.length > 0 && S.beatFilter === "all";
-    $("#mineHead").hidden = !showMine;
-    if (showMine) mine.forEach(function (b) { mbox.appendChild(beatCard(b)); });
+    // favourites + mood + tempo chips
+    var mbox = $("#beatMoods"); mbox.innerHTML = "";
+    var favChip = chip('<svg class="i-heart"><use href="#i-heart"/></svg> علاقه‌مندی‌ها <small class="count">' + fa((S.favs || []).length) + "</small>", "", S.onlyFavs, { onlyfavs: 1 });
+    favChip.classList.add("sm", "fav-chip"); mbox.appendChild(favChip);
+    QB.MOODS.forEach(function (m) {
+      var c = chip(m[1], "", S.beatMood === m[0], { mood: S.beatMood === m[0] ? "all" : m[0] }); c.classList.add("sm"); mbox.appendChild(c);
+    });
+    var sep = document.createElement("span"); sep.className = "chip-sep"; mbox.appendChild(sep);
+    TEMPOS.forEach(function (t) {
+      var c = chip(t[1], "", S.beatTempo === t[0], { tempo: t[0] }); c.classList.add("sm"); mbox.appendChild(c);
+    });
+    $("#beatSort").value = S.beatSort;
+
+    var v = visibleBeats(), box = $("#beatList"); box.innerHTML = "";
+    v.list.forEach(function (b) {
+      box.appendChild(beatCard(b, v.plays[b.name]));
+      if (b.id === S.beat) box.appendChild(beatSettingsPanel(b));
+    });
+    $("#beatCount").innerHTML = fa(v.list.length) + " بیت" + (filtersActive() ? ' · <button type="button" class="link-btn" id="clearFilters">پاک کردن فیلترها</button>' : "");
+    if (!v.list.length) box.innerHTML = '<p class="note empty-list">بیتی با این فیلترها پیدا نشد.</p>';
+    // selected beat hidden by filters → keep it visible on top so the choice is clear
+    var sel = findBeat(S.beat);
+    if (sel && v.list.indexOf(sel) < 0) {
+      var pinned = beatCard(sel, v.plays[sel.name]); pinned.classList.add("is-pinned");
+      box.insertBefore(beatSettingsPanel(sel), box.firstChild);
+      box.insertBefore(pinned, box.firstChild);
+    }
+    $("#mineHead").hidden = true; $("#mineList").innerHTML = "";
     $(".upload-card").hidden = S.mode !== "classic";
-    if (!findBeat(S.beat) || (S.mode === "endless" && findBeat(S.beat).kind !== "synth")) { S.beat = "golden"; renderBeats(); }
+    var note = $("#endlessNote");
+    if (S.mode === "endless") {
+      var n = v.list.filter(function (b) { return b.kind === "synth" && b.id !== S.beat; }).length;
+      note.hidden = false;
+      note.textContent = n ? "بی‌پایان: بعد از «" + (sel ? sel.name : "") + "»، " + fa(n) + " بیتِ همین لیست به‌نوبت و قاطی پخش می‌شن. با فیلتر یا علاقه‌مندی‌ها پلی‌لیست خودت رو بساز."
+                           : "بی‌پایان: فقط همین یه بیت تکرار می‌شه — فیلتر رو باز کن تا بیت‌های بیشتری بیاد.";
+    } else note.hidden = true;
     updatePreviewButtons();
+    loadWaves(v.list);
+  }
+
+  /* settings for the selected beat, shown right under its card */
+  function beatSettingsPanel(b) {
+    var p = document.createElement("div"), o = beatOpts(b.id);
+    p.className = "beat-settings";
+    var html = '<div class="bs-head"><b>تنظیمات این بیت</b>' + (Object.keys(o).length ? '<button type="button" class="link-btn" data-bsreset="' + b.id + '">برگردون به پیش‌فرض</button>' : "") + "</div>";
+    if (b.kind === "synth") {
+      var t = Math.round((o.tempo || 1) * 100);
+      html += '<div class="bs-row"><label for="bsTempo">سرعت</label>' +
+        '<input type="range" id="bsTempo" min="85" max="115" step="1" value="' + t + '">' +
+        '<output id="bsTempoOut">' + fa(Math.round(b.bpm * t / 100)) + " BPM · " + fa(t) + "٪</output></div>";
+      html += '<div class="bs-row"><label>لایه‌ها</label><div class="seg">' +
+        [["all", "کامل"], ["drums", "فقط درام"], ["nodrums", "بدون درام"]].map(function (l) {
+          var on = (o.layers || "all") === l[0];
+          return '<button type="button" class="seg-btn' + (on ? " is-on" : "") + '" aria-pressed="' + on + '" data-layers="' + l[0] + '">' + l[1] + "</button>";
+        }).join("") + "</div></div>";
+    } else {
+      var auto = b.intro != null ? "خودکار (" + fa(b.intro) + ")" : "خودکار";
+      var cur = o.skip == null ? "auto" : String(o.skip);
+      html += '<div class="bs-row"><label>رد کردن اینترو</label><div class="seg">' +
+        [["auto", auto], ["0", "هیچی"], ["1", fa(1)], ["2", fa(2)], ["4", fa(4)], ["8", fa(8)]].map(function (s) {
+          var on = cur === s[0];
+          return '<button type="button" class="seg-btn' + (on ? " is-on" : "") + '" aria-pressed="' + on + '" data-skip="' + s[0] + '">' + s[1] + "</button>";
+        }).join("") + '</div><small class="bs-hint">بار</small></div>';
+      html += '<p class="bs-hint">صدای این بیت خودکار هم‌سطح بقیه می‌شه.' + (b.dur ? " طول ترک: " + fmtTime(b.dur) : "") + "</p>";
+    }
+    html += '<label class="toggle bs-toggle"><input type="checkbox" id="bsAutoHalf"' + (S.autoHalf ? " checked" : "") + '><span class="toggle-ui"></span><span>نیم‌سرعت خودکار <small>(وقتی بیت بالای ۱۱۵ BPM باشه، توپ نصف سرعت می‌ره)</small></span></label>';
+    p.innerHTML = html;
+    return p;
+  }
+
+  /* waveforms: built-in beats are rendered offline (silently), MP3s come from their cached analysis */
+  var waveQueue = [], waveBusy = false;
+  function loadWaves(list) {
+    list.forEach(function (b) {
+      if (b.kind !== "synth" || waves[b.id]) return;
+      var cached = null;
+      try { cached = JSON.parse(localStorage.getItem("qb.wave1." + b.id) || "null"); } catch (e) {}
+      if (cached) { waves[b.id] = cached; $$('[data-wave="' + b.id + '"]').forEach(function (el) { el.innerHTML = waveSVG(cached); }); }
+      else if (waveQueue.indexOf(b.id) < 0) waveQueue.push(b.id);
+    });
+    if (waveBusy || !waveQueue.length || !window.OfflineAudioContext) return;
+    waveBusy = true;
+    QB.audio.ensure();
+    (function next() {
+      var id = waveQueue.shift();
+      if (!id) { waveBusy = false; return; }
+      QB.beatWave(QB.beatById(id)).then(function (pk) {
+        waves[id] = pk;
+        try { localStorage.setItem("qb.wave1." + id, JSON.stringify(pk)); } catch (e) {}
+        $$('[data-wave="' + id + '"]').forEach(function (el) { el.innerHTML = waveSVG(pk); });
+      }).catch(function () {}).then(function () { setTimeout(next, 30); });
+    })();
   }
 
   function renderSetup() {
@@ -413,8 +593,8 @@
     var parts = [lv ? QB.LEVELS[lv].label : "دستی"];
     if (S.mode === "tap") parts.push(fa(S.tapBpm) + " BPM");
     else {
-      var b = findBeat(S.beat); if (b) parts.push(b.name);
-      parts.push(S.mode === "classic" ? fa(S.bars) + " بار" : "بی‌پایان");
+      var b = findBeat(S.beat); if (b) parts.push(b.name + (effBpm(b) ? " · " + fa(Math.round(effBpm(b))) + " BPM" : ""));
+      parts.push(S.mode === "classic" ? (S.bars === "full" ? "کل ترک" : fa(S.bars) + " بار") : "بی‌پایان");
     }
     $("#summary").innerHTML = parts.map(function (p) { return "<span>" + esc(p) + "</span>"; }).join("");
   }
@@ -433,16 +613,19 @@
     updatePreviewButtons();
     if (b.kind === "synth") {
       preview = new QB.Transport();
-      preview.start({ kind: "synth", beats: [QB.beatById(id)], preview: true, intro: false, volume: 0.8 });
+      preview.start({ kind: "synth", beats: [synthFor(id)], preview: true, intro: false, volume: 0.8 });
     } else {
       loadBuffer(b).then(function (buf) {
         if (previewId !== id) return;
         preview = new QB.Transport();
-        preview.start({ kind: "buffer", buffer: buf, bpm: b.bpm, offset: b.offset, name: b.name, volume: 0.8 });
+        var src = bufferSource(b, buf);   // starts after the intro, at the beat's level
+        src.volume = 0.8;
+        preview.start(src);
         preview.onEnd = stopPreview;
       }).catch(function () { previewId = null; updatePreviewButtons(); globalToast("فایل این بیت باز نشد"); });
     }
   }
+  function restartPreviewIf(id) { if (previewId === id) startPreview(id); }
   function updatePreviewButtons() {
     $$(".beat-play").forEach(function (btn) {
       var on = btn.dataset.preview === previewId;
@@ -564,8 +747,10 @@
 
   function buildCfg() {
     return { mode: S.mode, scheme: S.scheme, fill: S.fill, list: S.list, clean: S.clean, speed: +S.speed,
-             bars: S.bars, switchEvery: S.switchEvery, lagMs: S.lag };
+             bars: S.bars === "full" ? 16 : S.bars, switchEvery: S.switchEvery, lagMs: S.lag };
   }
+  /* Auto half-time: very fast tempos get a half-speed ball so they stay rappable */
+  function autoHalf(cfg, bpm) { if (S.autoHalf && bpm > 115 && cfg.mode !== "endless") cfg.speed = cfg.speed * 0.5; }
 
   function startGame(reuseGen, cfgOverride) {
     stopPreview();
@@ -596,23 +781,32 @@
         var period = 60 / bpm, lastAudio = ctx.currentTime - (performance.now() - lastTap) / 1000;
         t0 = lastAudio + period * Math.ceil((ctx.currentTime + 0.15 - lastAudio) / period);
       }
+      autoHalf(cfg, bpm);
       return go({ kind: "click", bpm: bpm, audible: S.click, t0: t0 });
     }
     var b = findBeat(S.beat);
     if (!b) return;
     if (b.kind === "synth") {
-      var beats = [QB.beatById(b.id)];
+      var beats = [synthFor(b.id)];
       if (S.mode === "endless") {
-        var pool = QB.BEATS.filter(function (x) { return x.id !== b.id && inFilter(x); });
-        if (!pool.length) pool = QB.BEATS.filter(function (x) { return x.id !== b.id; });
-        beats = beats.concat(QB.shuffle(pool));
+        // Endless rotates through the list the player filtered (genre, mood, tempo, favourites, search)
+        var pool = visibleBeats().list.filter(function (x) { return x.kind === "synth" && x.id !== b.id; });
+        beats = beats.concat(QB.shuffle(pool.map(function (x) { return synthFor(x.id); })));
       }
+      autoHalf(cfg, beats[0].bpm);
       return go({ kind: "synth", beats: beats });
     }
     $("#startBtn").disabled = true;
     loadBuffer(b).then(function (buf) {
       $("#startBtn").disabled = false;
-      go({ kind: "buffer", buffer: buf, bpm: b.bpm, offset: b.offset, name: b.name });
+      var src = bufferSource(b, buf);
+      if (S.bars === "full" && cfg.mode === "classic") {
+        // whole track: as many bars as the file has after the intro (even, so any ball speed divides it)
+        var n = Math.floor((buf.duration - src.offset) / (240 / b.bpm)) - 1;
+        cfg.bars = Math.max(4, n - (n % 2));
+      }
+      autoHalf(cfg, b.bpm);
+      go(src);
     }).catch(function () { $("#startBtn").disabled = false; globalToast("فایل این بیت باز نشد"); });
   }
 
@@ -750,9 +944,25 @@
     buildMeter();
 
     document.addEventListener("click", function (e) {
-      var t = e.target.closest("[data-bfilter],[data-go],[data-mode],[data-open],[data-level],[data-fill],[data-scheme],[data-speed],[data-list],[data-bars],[data-every],[data-preview],[data-del],[data-beat],[data-bpm],.theme-dot");
+      if (e.target.id === "clearFilters") {
+        S.beatFilter = "all"; S.beatMood = "all"; S.beatTempo = "all"; S.onlyFavs = false; beatQuery = "";
+        $("#beatSearch").value = ""; save(); renderBeats(); return;
+      }
+      var t = e.target.closest("[data-fav],[data-onlyfavs],[data-mood],[data-tempo],[data-layers],[data-skip],[data-bsreset],[data-bfilter],[data-go],[data-mode],[data-open],[data-level],[data-fill],[data-scheme],[data-speed],[data-list],[data-bars],[data-every],[data-preview],[data-del],[data-beat],[data-bpm],.theme-dot");
       if (!t) return;
       var d = t.dataset;
+      if (d.fav) {
+        e.stopPropagation();
+        S.favs = (S.favs || []).filter(function (x) { return x !== d.fav; });
+        if (t.getAttribute("aria-pressed") !== "true") S.favs.push(d.fav);
+        save(); renderBeats(); return;
+      }
+      if (d.onlyfavs) { S.onlyFavs = !S.onlyFavs; save(); renderBeats(); return; }
+      if (d.mood) { S.beatMood = d.mood; save(); renderBeats(); return; }
+      if (d.tempo) { S.beatTempo = d.tempo; save(); renderBeats(); return; }
+      if (d.layers) { setBeatOpt(S.beat, "layers", d.layers === "all" ? null : d.layers); renderBeats(); restartPreviewIf(S.beat); return; }
+      if (d.skip) { setBeatOpt(S.beat, "skip", d.skip === "auto" ? null : +d.skip); renderBeats(); restartPreviewIf(S.beat); return; }
+      if (d.bsreset) { S.beatOpts && delete S.beatOpts[d.bsreset]; save(); renderBeats(); updateSummary(); restartPreviewIf(d.bsreset); return; }
       if (d.bfilter) { S.beatFilter = d.bfilter; save(); renderBeats(); return; }
       if (d.go) { e.preventDefault(); if (game.running) game.stop(true); show(d.go); return; }
       if (d.mode && !t.closest(".setup")) { S.mode = d.mode; save(); renderSetup(); show("setup"); return; }
@@ -763,7 +973,7 @@
       if (d.scheme) { S.scheme = d.scheme; save(); renderLevels(); renderAdvanced(); updateSummary(); return; }
       if (d.speed) { S.speed = +d.speed; save(); renderAdvanced(); return; }
       if (d.list) { S.list = d.list; save(); renderLists(); return; }
-      if (d.bars) { S.bars = +d.bars; save(); renderLengths(); updateSummary(); return; }
+      if (d.bars) { S.bars = d.bars === "full" ? "full" : +d.bars; save(); renderLengths(); updateSummary(); return; }
       if (d.every) { S.switchEvery = +d.every; save(); renderLengths(); return; }
       if (d.bpm) { S.tapBpm = Math.min(200, Math.max(50, S.tapBpm + +d.bpm)); save(); $("#tapBpmInput").value = S.tapBpm; $("#tapBpm").textContent = fa(S.tapBpm); updateSummary(); return; }
       if (d.preview) { e.stopPropagation(); if (previewId === d.preview) stopPreview(); else startPreview(d.preview); return; }
@@ -780,7 +990,7 @@
         }
         return;
       }
-      if (d.beat) { S.beat = d.beat; save(); renderBeats(); updateSummary(); return; }
+      if (d.beat) { if (S.beat === d.beat) return; S.beat = d.beat; save(); renderBeats(); renderLengths(); updateSummary(); return; }
     });
     document.addEventListener("keydown", function (e) {
       if (e.key !== "Enter" && e.key !== " ") return;
@@ -791,6 +1001,36 @@
     $("#cleanToggle").addEventListener("change", function (e) { S.clean = e.target.checked; save(); $("#cleanToggle2").checked = S.clean; });
     $("#cleanToggle2").addEventListener("change", function (e) { S.clean = e.target.checked; save(); $("#cleanToggle").checked = S.clean; });
     $("#clickToggle").addEventListener("change", function (e) { S.click = e.target.checked; save(); });
+    // beat library: search, sort, random, per-beat tempo + auto half-time
+    $("#beatSearch").addEventListener("input", function (e) { beatQuery = e.target.value.trim(); renderBeats(); });
+    $("#beatSort").addEventListener("change", function (e) { S.beatSort = e.target.value; save(); renderBeats(); });
+    $("#beatRandom").addEventListener("click", function () {
+      var pool = visibleBeats().list.filter(function (b) { return b.id !== S.beat; });
+      if (!pool.length) { globalToast("بیت دیگه‌ای تو این لیست نیست"); return; }
+      var pick = pool[Math.floor(Math.random() * pool.length)];
+      S.beat = pick.id; save(); renderBeats(); renderLengths(); updateSummary();
+      var card = $('.beat-card[data-beat="' + pick.id + '"]');
+      if (card) card.scrollIntoView({ block: "center", behavior: "smooth" });
+      startPreview(pick.id);
+    });
+    var tempoTimer;
+    $("#beatList").addEventListener("input", function (e) {
+      if (e.target.id !== "bsTempo") return;
+      var pct = +e.target.value, b = findBeat(S.beat);
+      $("#bsTempoOut").textContent = fa(Math.round(b.bpm * pct / 100)) + " BPM · " + fa(pct) + "٪";
+      clearTimeout(tempoTimer);
+      tempoTimer = setTimeout(function () {
+        setBeatOpt(S.beat, "tempo", pct === 100 ? null : pct / 100);
+        var card = $('.beat-card[data-beat="' + S.beat + '"] .beat-bpm b');
+        if (card) card.textContent = fa(Math.round(effBpm(b)));
+        updateSummary(); restartPreviewIf(S.beat);
+      }, 180);
+    });
+    $("#beatList").addEventListener("change", function (e) {
+      if (e.target.id === "bsTempo") renderBeats();
+      if (e.target.id === "bsAutoHalf") { S.autoHalf = e.target.checked; save(); }
+    });
+
     $("#recToggle").addEventListener("change", function (e) { S.rec = e.target.checked; save(); $("#camRow").hidden = !S.rec; });
     $("#camToggle").addEventListener("change", function (e) { S.cam = e.target.checked; save(); });
     $("#dailyBtn").addEventListener("click", startDaily);
@@ -849,7 +1089,7 @@
       if (dlg.returnValue === "save" && up) {
         var rec = { id: "mine-" + Date.now().toString(36), kind: "mine", name: ($("#upName").value || up.name).trim() || "بیت من",
                     genre: "بیت خودم", vibe: "", bpm: up.bpm, offset: up.offset, data: up.data };
-        mine.push(rec); decoded[rec.id] = up.buf;
+        mine.push(rec); decoded[rec.id] = up.buf; ensureMeta(rec, up.buf);
         S.beat = rec.id; save();
         DB.put({ id: rec.id, name: rec.name, bpm: rec.bpm, offset: rec.offset, data: rec.data, created: Date.now() })
           .catch(function () { globalToast("این مرورگر اجازه‌ی ذخیره نداد؛ بیت فقط تا بستن صفحه می‌مونه."); });
@@ -871,10 +1111,14 @@
 
     DB.all().then(function (rows) {
       mine = (rows || []).sort(function (a, b) { return a.created - b.created; }).map(function (r) {
-        return { id: r.id, kind: "mine", name: r.name, genre: "بیت خودم", vibe: "", bpm: r.bpm, offset: r.offset, data: r.data };
+        var m = { id: r.id, kind: "mine", name: r.name, genre: "بیت خودم", vibe: "", bpm: r.bpm, offset: r.offset, data: r.data, moods: [] };
+        applyMeta(m, readMeta(m));
+        return m;
       });
-      if (current === "setup") renderBeats();
-    }).catch(function () {});
+    }).catch(function () {}).then(function () {
+      libReady.mine = true;
+      renderBeats(); renderLengths(); updateSummary();
+    });
     loadManifest();
     renderSetup();
     renderHome();
