@@ -143,3 +143,45 @@ Shared-library MP3s can join a genre filter by adding `"family": "boombap"` (etc
 - Fonts (Vazirmatn, Lalezar, Reem Kufi — SIL Open Font License) are bundled in `fonts/` and declared in
   `css/fonts.css`; arabic + latin subsets only, ~180 KB total. No requests go to Google or any other server.
 - Timing is driven by the Web Audio clock (not timers), so the ball stays locked to the beat.
+
+## Android app (Cafe Bazaar)
+
+The Android app is the **same code** wrapped with [Capacitor](https://capacitorjs.com): `npm run build:web` copies the
+game into `www/`, and `android/` is the native project that packs it. Everything is bundled inside the APK, so the app works
+fully offline and doesn't depend on the website being reachable. App id: `com.awlirezaz.qafiyehbaz` (`capacitor.config.json`)
+— **this can't change after the first Bazaar upload**.
+
+App-only behaviour lives in `js/native.js`: Android back button, saving videos to `Documents/Qafiyeh-Baz`, the share sheet
+for videos and the daily challenge. On the website that file does nothing.
+
+### Get an APK (no Android SDK needed on your PC)
+GitHub Actions builds it on every push to `main` (`.github/workflows/android.yml`):
+GitHub → **Actions** → **Android app** → latest run → **Artifacts** → `qafiyeh-baz-debug-apk`.
+Copy it to your phone and open it (allow "install unknown apps"). Each CI run signs debug builds with a different
+throwaway key, so **uninstall the old debug build before installing a newer one**.
+
+### Release signing (needed for Bazaar)
+1. Create your key once (asks for a password; the files are written *next to* the project folder, never inside it):
+   ```bash
+   npm run make-key
+   ```
+2. GitHub → repo **Settings → Secrets and variables → Actions → New repository secret**, add:
+   `ANDROID_KEYSTORE_BASE64` (content of `qafiyeh-baz-release.base64.txt`), `ANDROID_KEYSTORE_PASSWORD`,
+   `ANDROID_KEY_ALIAS` (default `qafiyehbaz`), `ANDROID_KEY_PASSWORD` (same password).
+3. Actions → **Android app** → **Run workflow**. The run now also uploads `qafiyeh-baz-release` with a signed
+   **APK** and **AAB**.
+4. **Back up `qafiyeh-baz-release.p12` and the password.** Every future update must be signed with the same key.
+
+`versionCode` = the GitHub run number, so each build is automatically newer than the last (Bazaar requires that).
+
+### Publishing on Cafe Bazaar
+1. Developer account: pishkhan.cafebazaar.ir (identity verification as a developer).
+2. New app → upload the **release APK** (or AAB if the panel offers it).
+3. Listing: name «قافیه‌باز», short + full Persian description, screenshots from your phone, icon `icons/icon-512.png`,
+   category (music / entertainment), age rating.
+4. Privacy policy URL: `https://awlirezaz.github.io/qafiyeh-baz/privacy.html`
+   (microphone + camera are only used for the optional video recording; nothing is uploaded).
+5. Updates: push to `main` → download the new release artifact → upload it in the Bazaar panel.
+
+### Working on the Android project locally (optional)
+Install Android Studio, then `npm install`, `npm run android:sync` and open the `android/` folder in Android Studio.

@@ -281,6 +281,7 @@
         return Promise.all(list.map(function (e) {
           if (!e || !e.file) return null;
           var src = "beats/" + encodeURI(e.file);
+          if (QB.native.is) return { e: e, src: src };   // the app's build already dropped entries without files
           return fetch(src, { method: "HEAD" }).then(function (r) { return r.ok ? { e: e, src: src } : null; }).catch(function () { return null; });
         })).then(function (found) {
           found.forEach(function (f) {
@@ -742,7 +743,7 @@
     $("#recVideo").src = r.url;
     $("#recSave").href = r.url;
     $("#recSave").setAttribute("download", name);
-    $("#recShare").hidden = !(navigator.canShare && navigator.canShare({ files: [recFile] }));
+    $("#recShare").hidden = !(QB.native.is || (navigator.canShare && navigator.canShare({ files: [recFile] })));
   }
 
   function buildCfg() {
@@ -860,7 +861,8 @@
     var info = dailyInfo();
     var url = location.origin + location.pathname.replace(/index\.html$/, "");
     var text = "چالش امروز قافیه‌باز (" + info.date + ") رو کامل کردم — " + fa(info.bars) + " بار روی «" + info.beat.name + "». تو هم امتحان کن:";
-    if (navigator.share) navigator.share({ title: "قافیه‌باز", text: text, url: url }).catch(function () {});
+    if (QB.native.is) { url = "https://awlirezaz.github.io/qafiyeh-baz/"; QB.native.shareText("قافیه‌باز", text, url).catch(function () {}); }
+    else if (navigator.share) navigator.share({ title: "قافیه‌باز", text: text, url: url }).catch(function () {});
     else if (navigator.clipboard) navigator.clipboard.writeText(text + " " + url).then(function () { globalToast("متن کپی شد — بفرستش برای رفیقات"); });
   }
 
@@ -1036,8 +1038,27 @@
     $("#dailyBtn").addEventListener("click", startDaily);
     $("#dailyShare").addEventListener("click", shareDaily);
     $("#recShare").addEventListener("click", function () {
-      if (recFile && navigator.canShare && navigator.canShare({ files: [recFile] }))
+      if (!recFile) return;
+      if (QB.native.is) QB.native.shareFile(recFile, recFile.name).catch(function () { globalToast("اشتراک انجام نشد"); });
+      else if (navigator.canShare && navigator.canShare({ files: [recFile] }))
         navigator.share({ files: [recFile], title: "قافیه‌باز" }).catch(function () {});
+    });
+    // in the Android app a download link can't save files — write to Documents/Qafiyeh-Baz instead
+    $("#recSave").addEventListener("click", function (e) {
+      if (!QB.native.is || !recFile) return;
+      e.preventDefault();
+      QB.native.saveFile(recFile, recFile.name)
+        .then(function () { globalToast("ذخیره شد: Documents/Qafiyeh-Baz", 3500); })
+        .catch(function () { globalToast("ذخیره نشد — از «اشتراک» استفاده کن", 3500); });
+    });
+
+    // Android back button: close dialogs, leave the game, go back to home, then exit
+    QB.native.onBack(function () {
+      var open = $("dialog[open]");
+      if (open) { open.close(); return; }
+      if (current === "game") { quitGame(); return; }
+      if (current !== "home") { if (game.running) game.stop(true); show("home"); return; }
+      QB.native.exit();
     });
 
     // install as an app (Android/desktop prompt; iOS needs Share → Add to Home Screen)
@@ -1045,14 +1066,14 @@
     var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
     window.addEventListener("beforeinstallprompt", function (e) { e.preventDefault(); installEvt = e; $("#installBtn").hidden = false; });
     window.addEventListener("appinstalled", function () { $("#installBtn").hidden = true; installEvt = null; });
-    if (isIOS && !standalone) $("#installBtn").hidden = false;
+    if (isIOS && !standalone && !QB.native.is) $("#installBtn").hidden = false;
     $("#installBtn").addEventListener("click", function () {
       if (installEvt) {
         installEvt.prompt();
         installEvt.userChoice.then(function () { installEvt = null; $("#installBtn").hidden = true; });
       } else if (isIOS) globalToast("توی سافاری دکمه‌ی Share رو بزن، بعد «Add to Home Screen»", 5000);
     });
-    if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
+    if (!QB.native.is && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
       navigator.serviceWorker.register("sw.js").catch(function () {});
     }
     $("#tapBpmInput").addEventListener("change", function (e) {

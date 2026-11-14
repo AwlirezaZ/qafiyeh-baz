@@ -1,0 +1,23 @@
+{
+  "name": "qafiyeh-baz",
+  "version": "1.0.0",
+  "private": true,
+  "description": "قافیه‌باز — Persian freestyle rap rhyme game (web + Android)",
+  "scripts": {
+    "serve": "node serve.js",
+    "build:web": "node scripts/build-web.mjs",
+    "android:sync": "npm run build:web && npx cap sync android",
+    "make-key": "node scripts/make-keystore.mjs"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.6.2",
+    "@capacitor/app": "8.1.2",
+    "@capacitor/core": "8.6.2",
+    "@capacitor/filesystem": "8.1.5",
+    "@capacitor/share": "8.0.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.6.2",
+    "node-forge": "1.4.3"
+  }
+}

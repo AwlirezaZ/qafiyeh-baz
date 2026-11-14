@@ -819,3 +819,8 @@ input[type="range"] { accent-color: var(--accent); width: 100%; }
 @media (prefers-reduced-motion: reduce) {
   .screen.is-active, .demo-ball, .beat-play.is-playing, .cell.hit, .cell.rhyme.hit { animation: none; }
 }
+
+/* ---------- notches / status bar (installed PWA on iPhone, Android app edge-to-edge) ---------- */
+.topbar { padding-top: max(12px, calc(env(safe-area-inset-top, 0px) + 10px)); }
+.game-top { padding-top: max(10px, calc(env(safe-area-inset-top, 0px) + 8px)); }
+.topbar, .game-top { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }

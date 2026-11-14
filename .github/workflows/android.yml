@@ -1,0 +1,90 @@
+# Builds the Android app in the cloud on every push to main (no Android SDK needed on your PC).
+# Download the APK from: GitHub → Actions → "Android app" → latest run → Artifacts.
+# - Always: a debug APK you can install on your phone to test.
+# - When the 4 signing secrets are set (see README → Android / Cafe Bazaar): a signed release APK + AAB for Bazaar.
+name: Android app
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Install, build web files, copy into the Android project
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build:web
+          npx cap sync android
+
+      - name: Restore signing key (only if secrets are set)
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.p12"
+            echo "ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/release.p12" >> "$GITHUB_ENV"
+            echo "SIGNED=true" >> "$GITHUB_ENV"
+          else
+            echo "No signing secrets yet — building the debug APK only."
+          fi
+
+      - name: Build APK
+        working-directory: android
+        env:
+          VERSION_CODE: ${{ github.run_number }}
+          VERSION_NAME: 1.0.${{ github.run_number }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleDebug
+          if [ "$SIGNED" = "true" ]; then ./gradlew --no-daemon assembleRelease bundleRelease; fi
+          mkdir -p "$GITHUB_WORKSPACE/out"
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/out/qafiyeh-baz-1.0.${{ github.run_number }}-debug.apk"
+          if [ "$SIGNED" = "true" ]; then
+            cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/out/qafiyeh-baz-1.0.${{ github.run_number }}-release.apk"
+            cp app/build/outputs/bundle/release/app-release.aab "$GITHUB_WORKSPACE/out/qafiyeh-baz-1.0.${{ github.run_number }}-release.aab"
+          fi
+          ls -la "$GITHUB_WORKSPACE/out"
+
+      - name: Upload debug APK (for testing on your phone)
+        uses: actions/upload-artifact@v4
+        with:
+          name: qafiyeh-baz-debug-apk
+          path: out/*-debug.apk
+          retention-days: 14
+
+      - name: Upload release APK + AAB (for Cafe Bazaar)
+        if: env.SIGNED == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: qafiyeh-baz-release
+          path: |
+            out/*-release.apk
+            out/*-release.aab
+          retention-days: 30

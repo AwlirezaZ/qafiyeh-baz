@@ -1,0 +1,20 @@
+{
+  "appId": "com.awlirezaz.qafiyehbaz",
+  "appName": "قافیه‌باز",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "backgroundColor": "#0f0f0e",
+    "allowMixedContent": false,
+    "webContentsDebuggingEnabled": false
+  },
+  "plugins": {
+    "SystemBars": {
+      "insetsHandling": "css",
+      "initialViewportFitValueHint": "cover",
+      "style": "DARK"
+    }
+  }
+}

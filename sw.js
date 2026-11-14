@@ -4,14 +4,14 @@
  * - Fonts, icons, beat MP3s: cache first → fast, and offline after the first play.
  * Bump VERSION to drop old caches.
  */
-const VERSION = "v2";
+const VERSION = "v3";
 const SHELL = `qb-shell-${VERSION}`;
 const MEDIA = `qb-media-${VERSION}`;
 
 const PRECACHE = [
   "./", "index.html", "manifest.webmanifest",
   "css/style.css", "css/fonts.css",
-  "js/words.js", "js/audio.js", "js/game.js", "js/recorder.js", "js/app.js",
+  "js/words.js", "js/audio.js", "js/game.js", "js/recorder.js", "js/native.js", "js/app.js", "privacy.html",
   "fonts/vazirmatn-arabic-4.woff2", "fonts/vazirmatn-latin-5.woff2",
   "fonts/lalezar-arabic-0.woff2", "fonts/lalezar-latin-1.woff2",
   "fonts/reem-kufi-arabic-2.woff2", "fonts/reem-kufi-latin-3.woff2",
