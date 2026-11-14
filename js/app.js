@@ -10,7 +10,7 @@
   var DEFAULTS = {
     mode: "classic", level: "beginner", fill: "all", scheme: "aabb", speed: 1,
     list: "all", clean: false, beat: "golden", beatFilter: "all", bars: 16, switchEvery: 16,
-    tapBpm: 90, click: false, theme: "poster", lag: 0
+    tapBpm: 90, click: false, theme: "poster", lag: 0, rec: false, cam: true
   };
   var S = {};
   try { S = JSON.parse(localStorage.getItem("qb.settings") || "{}") || {}; } catch (e) { S = {}; }
@@ -36,9 +36,122 @@
   var current = "home";
   function show(name) {
     current = name;
+    if (name === "home") renderHome();
+    if (name === "stats") renderStats();
     $$(".screen").forEach(function (s) { s.classList.toggle("is-active", s.dataset.screen === name); });
     window.scrollTo(0, 0);
     if (name !== "setup") stopPreview();
+  }
+
+  /* ---------- streaks & stats (this device only) ---------- */
+  var Stats = (function () {
+    var KEY = "qb.stats", DAY_MIN = 8;
+    function pad(n) { return (n < 10 ? "0" : "") + n; }
+    function dayKey(d) { d = d || new Date(); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+    function addDays(d, n) { var x = new Date(d); x.setDate(x.getDate() + n); return x; }
+    function load() {
+      var s = null;
+      try { s = JSON.parse(localStorage.getItem(KEY) || "null"); } catch (e) {}
+      s = s || {};
+      ["days", "beats", "daily"].forEach(function (k) { s[k] = s[k] || {}; });
+      ["totalBars", "games", "secs", "best"].forEach(function (k) { s[k] = s[k] || 0; });
+      return s;
+    }
+    function store(s) { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch (e) {} }
+    function counts(s, d) { return (s.days[dayKey(d)] || 0) >= DAY_MIN; }
+    function streak(s) {
+      var d = new Date(), n = 0;
+      if (!counts(s, d)) d = addDays(d, -1);           // today not done yet → streak still alive from yesterday
+      while (counts(s, d)) { n++; d = addDays(d, -1); }
+      return n;
+    }
+    function longest(s) {
+      var keys = Object.keys(s.days).filter(function (k) { return s.days[k] >= DAY_MIN; }).sort();
+      var best = 0, run = 0, prev = null;
+      keys.forEach(function (k) {
+        var d = new Date(k + "T12:00:00");
+        run = prev && Math.round((d - prev) / 864e5) === 1 ? run + 1 : 1;
+        prev = d; best = Math.max(best, run);
+      });
+      return best;
+    }
+    function record(res, beatName, dailyKey) {
+      var s = load(), before = streak(s);
+      if (res.bars > 0) {
+        var k = dayKey();
+        s.days[k] = (s.days[k] || 0) + res.bars;
+        s.totalBars += res.bars; s.games++; s.secs += res.secs; s.best = Math.max(s.best, res.bars);
+        if (beatName) s.beats[beatName] = (s.beats[beatName] || 0) + 1;
+      }
+      if (dailyKey) s.daily[dailyKey] = true;
+      store(s);
+      return { before: before, after: streak(s), today: s.days[dayKey()] || 0 };
+    }
+    return { load: load, dayKey: dayKey, addDays: addDays, streak: streak, longest: longest, record: record, DAY_MIN: DAY_MIN };
+  })();
+
+  function jalali(d, opts) {
+    try { return new Intl.DateTimeFormat("fa-IR-u-ca-persian", opts || { day: "numeric", month: "long" }).format(d); }
+    catch (e) { return d.toLocaleDateString("fa-IR"); }
+  }
+
+  /* ---------- daily challenge: same beat + words for everyone today ---------- */
+  function dailyInfo() {
+    var d = new Date(), key = Stats.dayKey(d), seed = +key.replace(/-/g, "");
+    var rng = QB.seededRandom(seed * 7 + 13);
+    var pool = QB.BEATS.filter(function (b) { return b.family === "boombap" || b.family === "trap"; });
+    var pick = function (arr) { return arr[Math.floor(rng() * arr.length)]; };
+    var beat = pick(pool);
+    var scheme = pick(["aabb", "abab", "aabb", "aaaa"]);
+    var fill = pick(["all", "first", "first", "last"]);
+    var list = rng() < 0.35 ? "multi" : "all";
+    return { key: key, seed: seed, beat: beat, scheme: scheme, fill: fill, list: list, bars: 16, date: jalali(d) };
+  }
+  function renderHome() {
+    var s = Stats.load(), n = Stats.streak(s);
+    $("#streakNum").textContent = fa(n);
+    $(".streak-chip").classList.toggle("is-hot", (s.days[Stats.dayKey()] || 0) >= Stats.DAY_MIN);
+    var info = dailyInfo(), done = !!s.daily[info.key];
+    $("#dailyDate").textContent = info.date;
+    $("#dailyMeta").textContent = [info.beat.name + " (" + info.beat.genre + ")", QB.SCHEMES[info.scheme].label,
+      QB.FILLS[info.fill].label, info.list === "multi" ? "چندهجایی" : null, fa(info.bars) + " بار"].filter(Boolean).join(" · ");
+    $("#dailyCard").classList.toggle("is-done", done);
+    $("#dailyBtnText").textContent = done ? "دوباره" : "قبول";
+    $(".daily-tag span").textContent = done ? "چالش امروز ✓" : "چالش امروز";
+  }
+  function startDaily() {
+    var info = dailyInfo();
+    var cfg = { mode: "classic", scheme: info.scheme, fill: info.fill, list: info.list, clean: true, speed: 1,
+                bars: info.bars, switchEvery: 16, lagMs: S.lag, daily: info.key, seed: info.seed,
+                source: { kind: "synth", beats: [info.beat] } };
+    startGame(null, cfg);
+  }
+
+  function renderStats() {
+    var s = Stats.load(), today = new Date(), todayBars = s.days[Stats.dayKey(today)] || 0;
+    $("#stStreak").textContent = fa(Stats.streak(s));
+    $("#stStreakHint").textContent = todayBars >= Stats.DAY_MIN ? "امروز حساب شد ✓"
+      : "امروز " + fa(Stats.DAY_MIN - todayBars) + " بار دیگه بخونی، حساب می‌شه";
+    var cal = $("#cal"); cal.innerHTML = "";
+    for (var i = 27; i >= 0; i--) {
+      var d = Stats.addDays(today, -i), bars = s.days[Stats.dayKey(d)] || 0;
+      var lv = bars === 0 ? 0 : bars < Stats.DAY_MIN ? 1 : bars < 32 ? 2 : 3;
+      var cell = document.createElement("i");
+      cell.className = "l" + lv + (i === 0 ? " today" : "");
+      cell.title = jalali(d, { weekday: "long", day: "numeric", month: "long" }) + " — " + fa(bars) + " بار";
+      cell.setAttribute("aria-label", cell.title);
+      cal.appendChild(cell);
+    }
+    $("#stLongest").textContent = fa(Stats.longest(s));
+    $("#stBars").textContent = fa(s.totalBars);
+    $("#stGames").textContent = fa(s.games);
+    $("#stTime").textContent = fa(Math.round(s.secs / 60));
+    $("#stDaily").textContent = fa(Object.keys(s.daily).length);
+    $("#stBest").textContent = fa(s.best);
+    var top = Object.keys(s.beats).sort(function (a, b) { return s.beats[b] - s.beats[a]; }).slice(0, 3);
+    $("#topBeats").innerHTML = top.length ? top.map(function (n) {
+      return "<li><b>" + esc(n) + "</b><span>" + fa(s.beats[n]) + " بار بازی</span></li>";
+    }).join("") : '<li class="empty">هنوز بازی نکردی</li>';
   }
 
   var toastTimer;
@@ -48,11 +161,11 @@
     clearTimeout(toastTimer);
     toastTimer = setTimeout(function () { el.classList.remove("show"); }, ms || 2200);
   }
-  function globalToast(msg) {
+  function globalToast(msg, ms) {
     var el = $(".global-toast");
     if (!el) { el = document.createElement("div"); el.className = "toast global-toast"; document.body.appendChild(el); }
     el.textContent = msg; el.classList.add("show");
-    clearTimeout(el._t); el._t = setTimeout(function () { el.classList.remove("show"); }, 2600);
+    clearTimeout(el._t); el._t = setTimeout(function () { el.classList.remove("show"); }, ms || 2600);
   }
 
   /* ---------- storage for uploaded beats ---------- */
@@ -282,6 +395,15 @@
     $("#tapBpmInput").value = S.tapBpm;
     $("#tapBpm").textContent = fa(S.tapBpm);
     $("#clickToggle").checked = S.click;
+    var canRec = QB.Recorder.supported();
+    $("#recToggle").checked = canRec && S.rec;
+    $("#recToggle").disabled = !canRec;
+    $("#camToggle").checked = S.cam;
+    $("#camRow").hidden = !(canRec && S.rec);
+    $(".rec-note").textContent = canRec
+      ? "ویدیو فقط روی دستگاه خودت ساخته می‌شه و جایی آپلود نمی‌شه. با هدفون بهتر درمیاد."
+      : "مرورگرت ضبط ویدیو رو پشتیبانی نمی‌کنه.";
+    $("#recField .field-num").textContent = fa(S.mode === "tap" ? 4 : 5);
     if (!matchLevel()) $("#advanced").open = true;
     updateSummary();
   }
@@ -409,9 +531,36 @@
     },
     onFinish: function (res) {
       lastResult = res;
+      var src = res.cfg.source || {};
+      var beatName = src.beats ? src.beats[0].name : src.kind === "buffer" ? src.name : "ضرب دستی";
+      res.dailyDone = !!res.cfg.daily && !res.early && res.bars >= res.cfg.bars;
+      res.streak = Stats.record(res, beatName, res.dailyDone ? res.cfg.daily : null);
       showReview(res);
+      $("#recDot").hidden = true;
+      if (recActive) {
+        recActive = false;
+        $("#recResult").hidden = false;
+        $("#recResult").classList.add("is-loading");
+        QB.Recorder.stop().then(showRecording);
+      } else $("#recResult").hidden = true;
     }
   };
+
+  /* ---------- recording ---------- */
+  var recActive = false, recUrl = null, recFile = null;
+  function showRecording(r) {
+    var box = $("#recResult");
+    box.classList.remove("is-loading");
+    if (!r) { box.hidden = true; globalToast("ضبط ویدیو انجام نشد"); return; }
+    if (recUrl) URL.revokeObjectURL(recUrl);
+    recUrl = r.url;
+    var name = "qafiyeh-baz-" + Stats.dayKey() + "." + r.ext;
+    recFile = new File([r.blob], name, { type: r.mime });
+    $("#recVideo").src = r.url;
+    $("#recSave").href = r.url;
+    $("#recSave").setAttribute("download", name);
+    $("#recShare").hidden = !(navigator.canShare && navigator.canShare({ files: [recFile] }));
+  }
 
   function buildCfg() {
     return { mode: S.mode, scheme: S.scheme, fill: S.fill, list: S.list, clean: S.clean, speed: +S.speed,
@@ -425,10 +574,21 @@
     var go = function (source) {
       cfg.source = source;
       lastCfg = cfg;
-      show("game");
-      requestAnimationFrame(function () { game.start(cfg, reuseGen || null); });
+      var begin = function (withRec) {
+        show("game");
+        $("#recDot").hidden = !withRec;
+        requestAnimationFrame(function () {
+          game.start(cfg, reuseGen || null);
+          recActive = withRec && QB.Recorder.start(game);
+        });
+      };
+      if (!(S.rec && QB.Recorder.supported())) return begin(false);
+      QB.Recorder.prepare(S.cam).then(function () { begin(true); }).catch(function () {
+        globalToast("اجازه‌ی میکروفون یا دوربین داده نشد — بدون ضبط ادامه می‌دیم", 3200);
+        begin(false);
+      });
     };
-    if (cfg.source && reuseGen) return go(cfg.source);
+    if (cfg.source) return go(cfg.source);
     if (S.mode === "tap") {
       var ctx = QB.audio.ctx, t0 = null, bpm = S.tapBpm;
       var lastTap = taps[taps.length - 1];
@@ -489,7 +649,25 @@
     }
     if (!res.words.length) wall.innerHTML = '<p class="note">' + (QB.SCHEMES[res.cfg.scheme].pattern ? "هنوز به اولین قافیه نرسیده بودی." : "حالت بی‌قافیه — فقط فلو.") + "</p>";
     $("#replaySame").hidden = !res.words.length;
+
+    // streak feedback
+    var st = res.streak, line = $("#streakLine"), msg = "";
+    if (st) {
+      if (st.after > st.before) msg = st.after === 1 ? "زنجیره شروع شد! فردا هم بیا." : "زنجیره‌ت شد " + fa(st.after) + " روز!";
+      else if (st.today < Stats.DAY_MIN) msg = "امروز " + fa(Stats.DAY_MIN - st.today) + " بار دیگه بخونی، تو زنجیره حساب می‌شه.";
+      else if (st.after) msg = "زنجیره: " + fa(st.after) + " روز";
+    }
+    line.textContent = msg; line.hidden = !msg;
+    $("#dailyDone").hidden = !res.dailyDone;
     show("review");
+  }
+
+  function shareDaily() {
+    var info = dailyInfo();
+    var url = location.origin + location.pathname.replace(/index\.html$/, "");
+    var text = "چالش امروز قافیه‌باز (" + info.date + ") رو کامل کردم — " + fa(info.bars) + " بار روی «" + info.beat.name + "». تو هم امتحان کن:";
+    if (navigator.share) navigator.share({ title: "قافیه‌باز", text: text, url: url }).catch(function () {});
+    else if (navigator.clipboard) navigator.clipboard.writeText(text + " " + url).then(function () { globalToast("متن کپی شد — بفرستش برای رفیقات"); });
   }
 
   /* ---------- upload flow ---------- */
@@ -613,6 +791,30 @@
     $("#cleanToggle").addEventListener("change", function (e) { S.clean = e.target.checked; save(); $("#cleanToggle2").checked = S.clean; });
     $("#cleanToggle2").addEventListener("change", function (e) { S.clean = e.target.checked; save(); $("#cleanToggle").checked = S.clean; });
     $("#clickToggle").addEventListener("change", function (e) { S.click = e.target.checked; save(); });
+    $("#recToggle").addEventListener("change", function (e) { S.rec = e.target.checked; save(); $("#camRow").hidden = !S.rec; });
+    $("#camToggle").addEventListener("change", function (e) { S.cam = e.target.checked; save(); });
+    $("#dailyBtn").addEventListener("click", startDaily);
+    $("#dailyShare").addEventListener("click", shareDaily);
+    $("#recShare").addEventListener("click", function () {
+      if (recFile && navigator.canShare && navigator.canShare({ files: [recFile] }))
+        navigator.share({ files: [recFile], title: "قافیه‌باز" }).catch(function () {});
+    });
+
+    // install as an app (Android/desktop prompt; iOS needs Share → Add to Home Screen)
+    var installEvt = null, standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+    var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    window.addEventListener("beforeinstallprompt", function (e) { e.preventDefault(); installEvt = e; $("#installBtn").hidden = false; });
+    window.addEventListener("appinstalled", function () { $("#installBtn").hidden = true; installEvt = null; });
+    if (isIOS && !standalone) $("#installBtn").hidden = false;
+    $("#installBtn").addEventListener("click", function () {
+      if (installEvt) {
+        installEvt.prompt();
+        installEvt.userChoice.then(function () { installEvt = null; $("#installBtn").hidden = true; });
+      } else if (isIOS) globalToast("توی سافاری دکمه‌ی Share رو بزن، بعد «Add to Home Screen»", 5000);
+    });
+    if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
+      navigator.serviceWorker.register("sw.js").catch(function () {});
+    }
     $("#tapBpmInput").addEventListener("change", function (e) {
       var v = Math.round(+e.target.value); if (!v) return;
       S.tapBpm = Math.min(200, Math.max(50, v)); e.target.value = S.tapBpm; $("#tapBpm").textContent = fa(S.tapBpm); save(); updateSummary();
@@ -675,6 +877,7 @@
     }).catch(function () {});
     loadManifest();
     renderSetup();
+    renderHome();
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);

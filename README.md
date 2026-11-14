@@ -49,6 +49,12 @@ Keep the shared `beats/` library modest; hosts' free terms don't allow using the
 | Themes | پوستر خیابونی (default) · نوار کاست · شب کاشی |
 | Review | bars, time, every rhyme used; replay with same or new words |
 | Audio-lag calibration | Settings → for Bluetooth headphones |
+| **Daily challenge** | چالش امروز: same beat + words for everyone each day (seeded by the date, no server), shareable result |
+| **Streaks & stats** | 8+ bars a day keeps the streak; 28-day calendar, totals, favourite beats (stored on the device) |
+| **Multi-syllable rhymes** | «چندهجایی» word list: only groups that rhyme on 2–3 syllables |
+| **Record & share** | 9:16 MP4/WebM video of the grid (optionally over the selfie camera) with beat + mic; save or share. Never uploaded |
+| **Installable / offline** | PWA: add to home screen; works offline after first visit (service worker) |
+| **Link previews** | Open Graph image + tags for Telegram/WhatsApp/Instagram/X |
 
 ## Files
 
@@ -60,7 +66,11 @@ fonts/            woff2 font files + license
 js/words.js       the rhyme bank  ← edit this to add words
 js/audio.js       instruments, the 6 beats, scheduler (Transport), tempo detection
 js/game.js        rhyme-scheme generator, grid + ball renderer, game controller
-js/app.js         UI wiring, settings, uploads (IndexedDB), review
+js/recorder.js    record & share: canvas compositor + MediaRecorder
+js/app.js         UI wiring, settings, uploads (IndexedDB), review, stats, daily challenge
+sw.js             service worker (offline + install) — bump VERSION when you change cached files
+manifest.webmanifest  app name, icons, colours for "install"
+icons/            app icons, favicon, og.png (link preview)
 beats/            optional shared beat library (see below)
 serve.js          tiny static dev server
 ```

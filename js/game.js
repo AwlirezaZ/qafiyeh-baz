@@ -32,14 +32,28 @@
   function shuffle(a) { for (var i = a.length - 1; i > 0; i--) { var j = rand(i + 1), t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
   QB.shuffle = shuffle;
 
+  /* deterministic PRNG (mulberry32) — same seed, same words for everyone (daily challenge) */
+  QB.seededRandom = function (seed) {
+    var a = seed >>> 0;
+    return function () {
+      a = (a + 0x6D2B79F5) >>> 0;
+      var t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  };
+
   /* ---------- word generator ---------- */
   function WordGen(cfg) {
     var list = QB.WORD_LISTS[cfg.list] || QB.WORD_LISTS.all;
     var allow = list.allow.filter(function (t) { return !(cfg.clean && t === "m"); });
+    this.rng = cfg.seed != null ? QB.seededRandom(cfg.seed) : Math.random;
     this.boost = list.boost;
     this.scheme = QB.SCHEMES[cfg.scheme] || QB.SCHEMES.aabb;
     this.fill = cfg.fill || "all";
-    this.pools = QB.RHYMES.map(function (g) {
+    var keys = list.multi ? QB.MULTI_KEYS : null;
+    this.pools = QB.RHYMES.filter(function (g) { return !keys || keys.indexOf(g.key) >= 0; }).map(function (g) {
       return { id: g.id, key: g.key, words: g.words.filter(function (w) { return allow.indexOf(w.tag) >= 0; }) };
     }).filter(function (g) { return g.words.length >= 2; });
     this.blocks = [];
@@ -52,7 +66,7 @@
     if (fresh.length >= n) cand = fresh;
     while (out.length < n && cand.length) {
       var total = 0, weights = cand.map(function (w) { var x = self.boost.indexOf(w.tag) >= 0 ? 3 : 1; total += x; return x; });
-      var r = Math.random() * total, i = 0;
+      var r = self.rng() * total, i = 0;
       while (r > weights[i]) { r -= weights[i]; i++; }
       out.push(cand[i].w); cand.splice(i, 1);
     }
@@ -73,7 +87,7 @@
         return g.words.length >= need && used.indexOf(g.id) < 0 && self.recentGroups.indexOf(g.id) < 0;
       });
       if (!cands.length) cands = self.pools.filter(function (g) { return g.words.length >= need && used.indexOf(g.id) < 0; });
-      var g = cands[rand(cands.length)];
+      var g = cands[Math.floor(self.rng() * cands.length)];
       used.push(g.id);
       groupFor[L] = g;
       wordsFor[L] = self.pickWords(g, need);
@@ -157,6 +171,7 @@
           w.className = "word";
           w.textContent = b.visible ? b.word : "؟";
           if (!b.visible) c.classList.add("hidden-word");
+          else if (b.word.length > 7) c.classList.add("long");
           c.appendChild(w);
         } else c.classList.add("free");
       } else {

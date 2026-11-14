@@ -1,0 +1,19 @@
+{
+  "name": "قافیه‌باز — بازی فری‌استایل رپ",
+  "short_name": "قافیه‌باز",
+  "description": "قافیه‌ها رو روی ضرب بهت می‌ده؛ تو فقط پرش کن. بازی تمرین فری‌استایل رپ فارسی.",
+  "lang": "fa",
+  "dir": "rtl",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0f0f0e",
+  "theme_color": "#0f0f0e",
+  "categories": ["music", "games", "education"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
