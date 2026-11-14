@@ -116,7 +116,9 @@ Shared-library MP3s can join a genre filter by adding `"family": "boombap"` (etc
     { "file": "night-drive.mp3", "name": "رانندگی شبانه", "genre": "بوم‌بپ", "vibe": "خاکی و آروم", "bpm": 90, "offset": 0.42 }
   ]
   ```
-  `offset` = seconds until the first downbeat. Tip: upload the file in the app first, then copy the BPM/offset it found.
+  `offset` = seconds until the first downbeat. Both are optional: leave them out and the game measures them
+  the first time the beat loads (cached per browser). Entries whose file is missing are skipped, and
+  `artist` + `license` are shown on the beat card. Credit every CC BY track in `CREDITS.md`.
 
   Only beats you have the rights to distribute.
 

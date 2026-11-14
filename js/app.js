@@ -104,21 +104,50 @@
       : fetch(desc.src).then(function (r) { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); });
     return get.then(function (ab) {
       return new Promise(function (res, rej) { ctx.decodeAudioData(ab, res, rej); });
-    }).then(function (buf) { decoded[desc.id] = buf; return buf; });
+    }).then(function (buf) {
+      decoded[desc.id] = buf;
+      ensureTempo(desc, buf);
+      return buf;
+    });
   }
 
-  /* optional shared library: beats/manifest.json (works when served over http) */
+  /* library beats listed without bpm/offset get measured once, then cached */
+  function ensureTempo(desc, buf) {
+    if (desc.bpm) return;
+    var key = "qb.tempo." + desc.src, r = null;
+    try { r = JSON.parse(localStorage.getItem(key) || "null"); } catch (e) {}
+    if (!r || !r.bpm) {
+      r = QB.detectTempo(buf);
+      try { localStorage.setItem(key, JSON.stringify(r)); } catch (e) {}
+    }
+    desc.bpm = r.bpm; desc.offset = r.offset;
+    if (current === "setup") { renderBeats(); updateSummary(); }
+  }
+
+  /* optional shared library: beats/manifest.json (works when served over http).
+     Entries whose audio file isn't there are skipped; bpm/offset may be omitted (auto-detected). */
   function loadManifest() {
     if (location.protocol === "file:") return;
     fetch("beats/manifest.json", { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; })
       .then(function (list) {
         if (!Array.isArray(list)) return;
-        list.forEach(function (e, i) {
-          if (!e || !e.file || !e.bpm) return;
-          library.push({ id: "lib-" + i, kind: "file", src: "beats/" + e.file, name: e.name || e.file, family: e.family || null,
-                         genre: e.genre || "بیت", vibe: e.vibe || "", bpm: +e.bpm, offset: +e.offset || 0 });
+        return Promise.all(list.map(function (e) {
+          if (!e || !e.file) return null;
+          var src = "beats/" + encodeURI(e.file);
+          return fetch(src, { method: "HEAD" }).then(function (r) { return r.ok ? { e: e, src: src } : null; }).catch(function () { return null; });
+        })).then(function (found) {
+          found.forEach(function (f) {
+            if (!f) return;
+            var e = f.e, cached = null;
+            try { cached = JSON.parse(localStorage.getItem("qb.tempo." + f.src) || "null"); } catch (x) {}
+            var credit = [e.artist, e.license].filter(Boolean).join(" · ");
+            library.push({ id: "lib-" + e.file, kind: "file", src: f.src, name: e.name || e.file, family: e.family || null,
+                           genre: e.genre || "بیت", vibe: e.vibe ? e.vibe + (credit ? " · " + credit : "") : credit,
+                           bpm: +e.bpm || (cached && cached.bpm) || null,
+                           offset: e.bpm ? (+e.offset || 0) : ((cached && cached.offset) || 0) });
+          });
+          if (current === "setup") renderBeats();
         });
-        renderBeats();
       }).catch(function () {});
   }
 
@@ -212,7 +241,7 @@
       '<button type="button" class="beat-play" data-preview="' + b.id + '" aria-label="پیش‌نمایش"><svg><use href="#i-play"/></svg></button>' +
       '<div class="beat-info"><span class="beat-genre">' + esc(b.genre) + '</span><b class="beat-name">' + esc(b.name) + "</b>" +
       (b.vibe ? '<span class="beat-vibe">' + esc(b.vibe) + "</span>" : "") + "</div>" +
-      '<span class="beat-bpm"><b>' + fa(Math.round(b.bpm)) + "</b><small>BPM</small></span>" +
+      '<span class="beat-bpm"><b>' + (b.bpm ? fa(Math.round(b.bpm)) : "؟") + "</b><small>BPM</small></span>" +
       (b.kind === "mine" ? '<button type="button" class="beat-del" data-del="' + b.id + '" aria-label="حذف"><svg><use href="#i-trash"/></svg></button>' : "");
     return el;
   }
