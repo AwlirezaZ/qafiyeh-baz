@@ -1,0 +1,8 @@
+Fonts in this folder are licensed under the SIL Open Font License 1.1
+(https://openfontlicense.org) and may be bundled and redistributed with this game.
+
+- Vazirmatn  — Saber Rastikerdar          https://github.com/rastikerdar/vazirmatn
+- Lalezar    — Borna Izadpanah            https://github.com/BornaIz/Lalezar
+- Reem Kufi  — Khaled Hosny, Santiago Orozco  https://github.com/aliftype/reem-kufi
+
+Files are the "arabic" and "latin" subsets served by Google Fonts.
