@@ -11,7 +11,8 @@
     mode: "classic", level: "beginner", fill: "all", scheme: "aabb", speed: 1,
     list: "all", clean: false, beat: "golden", beatFilter: "all", bars: 16, switchEvery: 16,
     tapBpm: 90, click: false, theme: "poster", lag: 0, rec: false, cam: true,
-    beatMood: "all", beatTempo: "all", beatSort: "suggested", onlyFavs: false, favs: [], beatOpts: {}, autoHalf: true
+    beatMood: "all", beatTempo: "all", beatSort: "suggested", onlyFavs: false, favs: [], beatOpts: {}, autoHalf: true,
+    pattern: "AAAA", hold: 4
   };
   var S = {};
   try { S = JSON.parse(localStorage.getItem("qb.settings") || "{}") || {}; } catch (e) { S = {}; }
@@ -321,10 +322,17 @@
     return lv;
   }
 
+  var LETTER_CLASS = { A: "c0", B: "c1", C: "c2", "-": "free" };
+  var LETTER_FA = { A: "الف", B: "ب", C: "ج", "-": "—" };
   function schemeBars(pattern) {
     if (!pattern) return '<span class="sb free"></span><span class="sb free"></span><span class="sb free"></span><span class="sb free"></span>';
-    return pattern.split("").map(function (L) { return '<span class="sb ' + (L === "A" ? "c0" : "c1") + '"></span>'; }).join("");
+    return pattern.split("").map(function (L) { return '<span class="sb ' + (LETTER_CLASS[L] || "c0") + '"></span>'; }).join("");
   }
+  function schemeLabel(cfg) {
+    if (cfg.scheme !== "custom") return QB.SCHEMES[cfg.scheme].label;
+    return "دلخواه " + QB.cleanPattern(cfg.pattern).split("").map(function (L) { return LETTER_FA[L]; }).join(" ");
+  }
+  function holdLabel(h) { return h === 0 ? "یه قافیه تا آخر" : h === 4 ? "" : "قافیه هر " + fa(h) + " بار"; }
 
   function renderLevels() {
     var box = $("#levelChips"); box.innerHTML = "";
@@ -353,9 +361,26 @@
   function renderAdvanced() {
     renderSeg("#fillSeg", Object.keys(QB.FILLS).map(function (k) { return { v: k, label: QB.FILLS[k].label, hint: QB.FILLS[k].hint }; }), S.fill, "fill");
     renderSeg("#schemeSeg", Object.keys(QB.SCHEMES).map(function (k) {
-      var s = QB.SCHEMES[k];
-      return { v: k, hint: s.hint, html: '<span class="scheme-viz">' + schemeBars(s.pattern) + "</span>" + s.label };
+      var s = QB.SCHEMES[k], pat = s.custom ? QB.cleanPattern(S.pattern) : s.pattern;
+      return { v: k, hint: s.hint, html: '<span class="scheme-viz">' + schemeBars(pat) + "</span>" + s.label };
     }), S.scheme, "scheme");
+    // custom pattern editor: 4 lines, tap to cycle A → B → C → no rhyme
+    var custom = S.scheme === "custom";
+    $("#customRow").hidden = !custom;
+    if (custom) {
+      var pat = QB.cleanPattern(S.pattern);
+      $("#patternEdit").innerHTML = pat.split("").map(function (L, i) {
+        return '<button type="button" class="pline ' + LETTER_CLASS[L] + '" data-pline="' + i + '" aria-label="خط ' + fa(i + 1) + ': ' + (L === "-" ? "بی‌قافیه" : "قافیه‌ی " + LETTER_FA[L]) + '">' +
+          '<span class="pl-num">' + fa(i + 1) + '</span><span class="pl-bar"></span><b>' + LETTER_FA[L] + "</b></button>";
+      }).join("") +
+      '<div class="pattern-presets">' + ["AAAA", "AABA", "ABBA", "AAA-", "ABAC"].map(function (p) {
+        return '<button type="button" class="chip sm" data-preset="' + p + '">' + p.split("").map(function (L) { return LETTER_FA[L]; }).join(" ") + "</button>";
+      }).join("") + "</div>";
+    }
+    renderSeg("#holdSeg", QB.HOLDS.map(function (h) { return { v: h[0], label: h[1] }; }), S.hold, "hold");
+    $("#holdHint").textContent = S.hold === 0
+      ? "کل بازی روی یه صدا می‌چرخه — مثلاً همه‌ی خط‌ها با «ـار» تموم می‌شن (کلمه‌ها تکرار نمی‌شن تا ته گروه)."
+      : S.hold === 4 ? "هر ۴ بار یه صدای قافیه‌ی تازه." : "هر صدا " + fa(S.hold) + " بار می‌مونه، بعد عوض می‌شه.";
     renderSeg("#speedSeg", [{ v: 0.5, label: "نصف" }, { v: 1, label: "عادی" }, { v: 2, label: "دو برابر" }], S.speed, "speed");
   }
   function renderLists() {
@@ -597,6 +622,8 @@
       var b = findBeat(S.beat); if (b) parts.push(b.name + (effBpm(b) ? " · " + fa(Math.round(effBpm(b))) + " BPM" : ""));
       parts.push(S.mode === "classic" ? (S.bars === "full" ? "کل ترک" : fa(S.bars) + " بار") : "بی‌پایان");
     }
+    if (S.scheme === "custom") parts.splice(1, 0, schemeLabel({ scheme: "custom", pattern: S.pattern }));
+    if (holdLabel(+S.hold)) parts.push(holdLabel(+S.hold));
     $("#summary").innerHTML = parts.map(function (p) { return "<span>" + esc(p) + "</span>"; }).join("");
   }
 
@@ -684,8 +711,8 @@
   }
 
   function legendFor(cfg) {
-    var s = QB.SCHEMES[cfg.scheme];
-    return '<span class="scheme-viz">' + schemeBars(s.pattern) + "</span><span>" + s.label + " · " + QB.FILLS[cfg.fill].label + "</span>";
+    var parts = [schemeLabel(cfg), QB.FILLS[cfg.fill].label, holdLabel(cfg.hold == null ? 4 : cfg.hold)].filter(Boolean);
+    return '<span class="scheme-viz">' + schemeBars(QB.patternOf(cfg)) + "</span><span>" + parts.join(" · ") + "</span>";
   }
 
   var ui = {
@@ -748,7 +775,8 @@
 
   function buildCfg() {
     return { mode: S.mode, scheme: S.scheme, fill: S.fill, list: S.list, clean: S.clean, speed: +S.speed,
-             bars: S.bars === "full" ? 16 : S.bars, switchEvery: S.switchEvery, lagMs: S.lag };
+             bars: S.bars === "full" ? 16 : S.bars, switchEvery: S.switchEvery, lagMs: S.lag,
+             pattern: S.pattern, hold: +S.hold };
   }
   /* Auto half-time: very fast tempos get a half-speed ball so they stay rappable */
   function autoHalf(cfg, bpm) { if (S.autoHalf && bpm > 115 && cfg.mode !== "endless") cfg.speed = cfg.speed * 0.5; }
@@ -842,7 +870,7 @@
       });
       wall.appendChild(line);
     }
-    if (!res.words.length) wall.innerHTML = '<p class="note">' + (QB.SCHEMES[res.cfg.scheme].pattern ? "هنوز به اولین قافیه نرسیده بودی." : "حالت بی‌قافیه — فقط فلو.") + "</p>";
+    if (!res.words.length) wall.innerHTML = '<p class="note">' + (QB.patternOf(res.cfg) ? "هنوز به اولین قافیه نرسیده بودی." : "حالت بی‌قافیه — فقط فلو.") + "</p>";
     $("#replaySame").hidden = !res.words.length;
 
     // streak feedback
@@ -950,7 +978,7 @@
         S.beatFilter = "all"; S.beatMood = "all"; S.beatTempo = "all"; S.onlyFavs = false; beatQuery = "";
         $("#beatSearch").value = ""; save(); renderBeats(); return;
       }
-      var t = e.target.closest("[data-fav],[data-onlyfavs],[data-mood],[data-tempo],[data-layers],[data-skip],[data-bsreset],[data-bfilter],[data-go],[data-mode],[data-open],[data-level],[data-fill],[data-scheme],[data-speed],[data-list],[data-bars],[data-every],[data-preview],[data-del],[data-beat],[data-bpm],.theme-dot");
+      var t = e.target.closest("[data-pline],[data-preset],[data-hold],[data-fav],[data-onlyfavs],[data-mood],[data-tempo],[data-layers],[data-skip],[data-bsreset],[data-bfilter],[data-go],[data-mode],[data-open],[data-level],[data-fill],[data-scheme],[data-speed],[data-list],[data-bars],[data-every],[data-preview],[data-del],[data-beat],[data-bpm],.theme-dot");
       if (!t) return;
       var d = t.dataset;
       if (d.fav) {
@@ -973,6 +1001,14 @@
       if (d.level) { var L = QB.LEVELS[d.level]; S.fill = L.fill; S.scheme = L.scheme; save(); renderLevels(); renderAdvanced(); updateSummary(); return; }
       if (d.fill) { S.fill = d.fill; save(); renderLevels(); renderAdvanced(); updateSummary(); return; }
       if (d.scheme) { S.scheme = d.scheme; save(); renderLevels(); renderAdvanced(); updateSummary(); return; }
+      if (d.pline) {
+        var NEXT = { A: "B", B: "C", C: "-", "-": "A" }, arr = QB.cleanPattern(S.pattern).split("");
+        arr[+d.pline] = NEXT[arr[+d.pline]];
+        if (!/[ABC]/.test(arr.join(""))) arr[+d.pline] = "A";   // keep at least one rhyming line
+        S.pattern = arr.join(""); save(); renderAdvanced(); updateSummary(); return;
+      }
+      if (d.preset) { S.pattern = d.preset; save(); renderAdvanced(); updateSummary(); return; }
+      if (d.hold != null && d.hold !== "") { S.hold = +d.hold; save(); renderAdvanced(); updateSummary(); return; }
       if (d.speed) { S.speed = +d.speed; save(); renderAdvanced(); return; }
       if (d.list) { S.list = d.list; save(); renderLists(); return; }
       if (d.bars) { S.bars = d.bars === "full" ? "full" : +d.bars; save(); renderLengths(); updateSummary(); return; }

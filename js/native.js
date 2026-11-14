@@ -9,7 +9,14 @@
   var isNative = !!(cap && cap.isNativePlatform && cap.isNativePlatform());
 
   var N = QB.native = { is: isNative, App: null, Share: null, Filesystem: null, Directory: null };
-  if (!isNative) { N.ready = Promise.resolve(N); return; }
+  if (!isNative) {
+    // website: same API, all no-ops, so callers never need to check
+    var no = function () { return Promise.reject(new Error("not in the app")); };
+    N.ready = Promise.resolve(N);
+    N.onBack = function () {}; N.exit = function () {};
+    N.shareText = no; N.shareFile = no; N.saveFile = no;
+    return;
+  }
   document.documentElement.classList.add("is-native");
 
   function load(src) {

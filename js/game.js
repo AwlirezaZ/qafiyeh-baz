@@ -9,7 +9,16 @@
     aabb: { label: "جفت‌جفت", hint: "۱ و ۲، ۳ و ۴", pattern: "AABB" },
     abab: { label: "یکی‌درمیون", hint: "۱ و ۳، ۲ و ۴", pattern: "ABAB" },
     aaaa: { label: "تک‌قافیه", hint: "هر چهار تا یکی", pattern: "AAAA" },
+    custom: { label: "دلخواه", hint: "خودت بچینش", pattern: null, custom: true },
     none: { label: "بی‌قافیه", hint: "فقط فلو", pattern: null }
+  };
+  /* how many bars one rhyme sound lasts before a new one is picked (0 = the whole round) */
+  QB.HOLDS = [[4, "هر ۴ بار"], [8, "هر ۸ بار"], [16, "هر ۱۶ بار"], [0, "هیچ‌وقت"]];
+  /* custom pattern: 4 lines, each A / B / C or "-" (no rhyme) */
+  QB.cleanPattern = function (p) { return (String(p || "").toUpperCase().replace(/[^ABC-]/g, "") + "AAAA").slice(0, 4); };
+  QB.patternOf = function (cfg) {
+    var p = cfg.scheme === "custom" ? QB.cleanPattern(cfg.pattern) : (QB.SCHEMES[cfg.scheme] || QB.SCHEMES.aabb).pattern;
+    return p && /[ABC]/.test(p) ? p : null;
   };
   QB.FILLS = {
     all:   { label: "همه‌ی کلمه‌ها", hint: "همه‌چی جلوته" },
@@ -50,18 +59,33 @@
     var allow = list.allow.filter(function (t) { return !(cfg.clean && t === "m"); });
     this.rng = cfg.seed != null ? QB.seededRandom(cfg.seed) : Math.random;
     this.boost = list.boost;
-    this.scheme = QB.SCHEMES[cfg.scheme] || QB.SCHEMES.aabb;
     this.fill = cfg.fill || "all";
+    this.pattern = QB.patternOf(cfg);
+    this.hold = cfg.hold == null ? 4 : +cfg.hold;   // bars one rhyme sound lasts; 0 = the whole round
     var keys = list.multi ? QB.MULTI_KEYS : null;
     this.pools = QB.RHYMES.filter(function (g) { return !keys || keys.indexOf(g.key) >= 0; }).map(function (g) {
       return { id: g.id, key: g.key, words: g.words.filter(function (w) { return allow.indexOf(w.tag) >= 0; }) };
     }).filter(function (g) { return g.words.length >= 2; });
     this.blocks = [];
+    this.epochs = {};          // epoch → { groupFor: {letter: pool}, used: {letter: {word: true}} }
     this.recentGroups = [];
     this.recentWords = {};
   }
-  WordGen.prototype.pickWords = function (pool, n) {
-    var self = this, cand = pool.words.slice(), out = [];
+  WordGen.prototype.epochOf = function (k) { return this.hold ? Math.floor(k * 4 / this.hold) : 0; };
+
+  /* a rhyme group with enough words for how long it will be held */
+  WordGen.prototype.pickGroup = function (need, exclude) {
+    var self = this, ok = function (g) { return exclude.indexOf(g.id) < 0; };
+    var cands = this.pools.filter(function (g) { return ok(g) && g.words.length >= need && self.recentGroups.indexOf(g.id) < 0; });
+    if (!cands.length) cands = this.pools.filter(function (g) { return ok(g) && g.words.length >= need; });
+    if (!cands.length) cands = this.pools.filter(ok).sort(function (a, b) { return b.words.length - a.words.length; }).slice(0, 6);
+    return cands[Math.floor(this.rng() * cands.length)];
+  };
+  /* n words from a group; a held rhyme goes through its whole group before any word repeats */
+  WordGen.prototype.pickWords = function (pool, n, used) {
+    var self = this, out = [];
+    var cand = pool.words.filter(function (w) { return !used[w.w]; });
+    if (cand.length < n) { Object.keys(used).forEach(function (k) { delete used[k]; }); cand = pool.words.slice(); }
     var fresh = cand.filter(function (w) { return !self.recentWords[w.w]; });
     if (fresh.length >= n) cand = fresh;
     while (out.length < n && cand.length) {
@@ -70,34 +94,36 @@
       while (r > weights[i]) { r -= weights[i]; i++; }
       out.push(cand[i].w); cand.splice(i, 1);
     }
-    out.forEach(function (w) { self.recentWords[w] = true; });
+    out.forEach(function (w) { self.recentWords[w] = true; used[w] = true; });
     var keys = Object.keys(this.recentWords);
     if (keys.length > 60) keys.slice(0, keys.length - 60).forEach(function (k) { delete self.recentWords[k]; });
     return out;
   };
   WordGen.prototype.makeBlock = function (k) {
-    var pat = this.scheme.pattern, block = [];
+    var pat = this.pattern, block = [];
     if (!pat) { for (var i = 0; i < 4; i++) block.push({ letter: null }); return block; }
     var letters = [], counts = {};
-    pat.split("").forEach(function (L) { if (!(L in counts)) { letters.push(L); counts[L] = 0; } counts[L]++; });
-    var self = this, used = [], wordsFor = {}, groupFor = {};
-    letters.forEach(function (L) {
-      var need = counts[L];
-      var cands = self.pools.filter(function (g) {
-        return g.words.length >= need && used.indexOf(g.id) < 0 && self.recentGroups.indexOf(g.id) < 0;
+    pat.split("").forEach(function (L) { if (L === "-") return; if (!(L in counts)) { letters.push(L); counts[L] = 0; } counts[L]++; });
+    var self = this, e = this.epochOf(k), ep = this.epochs[e];
+    if (!ep) {
+      // new rhyme sounds for this stretch; long holds need groups with many words
+      ep = this.epochs[e] = { groupFor: {}, used: {} };
+      var blocks = this.hold ? this.hold / 4 : 8, taken = [];
+      letters.forEach(function (L) {
+        var g = self.pickGroup(Math.min(counts[L] * blocks, 40), taken);
+        taken.push(g.id); ep.groupFor[L] = g; ep.used[L] = {};
       });
-      if (!cands.length) cands = self.pools.filter(function (g) { return g.words.length >= need && used.indexOf(g.id) < 0; });
-      var g = cands[Math.floor(self.rng() * cands.length)];
-      used.push(g.id);
-      groupFor[L] = g;
-      wordsFor[L] = self.pickWords(g, need);
-    });
-    this.recentGroups = this.recentGroups.concat(used).slice(-8);
+      this.recentGroups = this.recentGroups.concat(taken).slice(-8);
+    }
+    var wordsFor = {};
+    letters.forEach(function (L) { wordsFor[L] = self.pickWords(ep.groupFor[L], counts[L], ep.used[L]); });
     var seen = {};
     pat.split("").forEach(function (L) {
+      if (L === "-") { block.push({ letter: null }); return; }
       var j = seen[L] = (seen[L] == null ? 0 : seen[L] + 1), c = counts[L], li = letters.indexOf(L);
       var vis = self.fill === "all" || (self.fill === "first" && j === 0) || (self.fill === "last" && j === c - 1);
-      block.push({ letter: L, word: wordsFor[L][j], visible: vis, color: (k * 2 + li) % 4, group: groupFor[L].key });
+      // same colour for the whole time a rhyme is held, so you can see it's the same sound
+      block.push({ letter: L, word: wordsFor[L][j], visible: vis, color: (e * 2 + li) % 4, group: ep.groupFor[L].key });
     });
     return block;
   };
