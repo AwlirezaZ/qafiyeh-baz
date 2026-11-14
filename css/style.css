@@ -369,6 +369,13 @@ svg { width: 1.2em; height: 1.2em; flex: none; }
 .toggle small { color: var(--muted); }
 [data-theme="poster"] .toggle-ui, [data-theme="poster"] .toggle-ui::after { border-radius: 2px; }
 
+/* beat genre filter */
+.beat-filter { flex-wrap: nowrap; overflow-x: auto; gap: 8px; margin-bottom: 12px; padding-bottom: 4px; scrollbar-width: none; }
+.beat-filter::-webkit-scrollbar { display: none; }
+.beat-filter .chip { flex: none; }
+.beat-filter .chip span { display: inline-flex; align-items: center; gap: 6px; }
+.beat-filter .count { font-size: 12px; opacity: .6; font-weight: 500; }
+
 /* beat cards */
 .beat-list { display: grid; gap: 10px; }
 .beat-card {

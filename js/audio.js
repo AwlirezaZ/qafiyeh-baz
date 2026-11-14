@@ -27,9 +27,13 @@
         var comp = ctx.createDynamicsCompressor();
         comp.threshold.value = -12; comp.knee.value = 8; comp.ratio.value = 3.5;
         comp.attack.value = 0.004; comp.release.value = 0.18;
+        // fast limiter catches drum transients the compressor is too slow for
+        var lim = ctx.createDynamicsCompressor();
+        lim.threshold.value = -3; lim.knee.value = 0; lim.ratio.value = 20;
+        lim.attack.value = 0.001; lim.release.value = 0.08;
         var an = this.analyser = ctx.createAnalyser();
         an.fftSize = 256; an.smoothingTimeConstant = 0.75;
-        master.connect(comp); comp.connect(an); an.connect(ctx.destination);
+        master.connect(comp); comp.connect(lim); lim.connect(an); an.connect(ctx.destination);
         this.noiseBuf = makeNoise(ctx, 1.5);
         this.impulse = makeImpulse(ctx, 2.2, 2.8);
         this.crackleBuf = makeCrackle(ctx, 4);
@@ -295,6 +299,90 @@
     var g = this.gain(this.out); g.gain.value = 0.22; s.connect(g); s.start(t);
     this.sources.push(s);
   };
+  /* Horn/brass stab: detuned saws with a fast filter "blat" — golden-era sample feel */
+  Kit.prototype.brass = function (t, notes, dur, v) {
+    v = v == null ? 1 : v;
+    var self = this, per = v / Math.sqrt(notes.length);
+    notes.forEach(function (n) {
+      var f = mtof(n), lp = self.filt("lowpass", 700, 2), g = self.gain(self.music);
+      lp.frequency.setValueAtTime(700, t);
+      lp.frequency.exponentialRampToValueAtTime(3200, t + 0.03);
+      lp.frequency.exponentialRampToValueAtTime(900, t + dur * 0.8 + 0.05);
+      [-7, 7].forEach(function (dt) {
+        var o = self.osc("sawtooth", f, t); o.detune.value = dt; o.connect(lp); o.start(t); o.stop(t + dur + 0.2);
+      });
+      lp.connect(g);
+      g.gain.setValueAtTime(EPS, t);
+      g.gain.exponentialRampToValueAtTime(0.3 * per, t + 0.012);
+      g.gain.setValueAtTime(0.26 * per, t + dur);
+      g.gain.exponentialRampToValueAtTime(EPS, t + dur + 0.12);
+      self.send(g, 0.25);
+    });
+  };
+  /* DJ scratch: pitched saw + noise through a sweeping band-pass (forward/back stroke) */
+  Kit.prototype.scratch = function (t, dur, v) {
+    v = v == null ? 1 : v;
+    var o = this.osc("sawtooth", 180, t), n = this.noise(t, dur), bp = this.filt("bandpass", 900, 3), g = this.gain(this.drums);
+    o.frequency.exponentialRampToValueAtTime(900, t + dur * 0.45);
+    o.frequency.exponentialRampToValueAtTime(220, t + dur);
+    bp.frequency.setValueAtTime(700, t);
+    bp.frequency.exponentialRampToValueAtTime(3200, t + dur * 0.45);
+    bp.frequency.exponentialRampToValueAtTime(800, t + dur);
+    var og = this.ctx.createGain(); og.gain.value = 0.5;
+    o.connect(og); og.connect(bp); n.connect(bp); bp.connect(g);
+    g.gain.setValueAtTime(EPS, t);
+    g.gain.exponentialRampToValueAtTime(0.55 * v, t + 0.01);
+    g.gain.setValueAtTime(0.55 * v, t + dur * 0.85);
+    g.gain.exponentialRampToValueAtTime(EPS, t + dur);
+    o.start(t); o.stop(t + dur + 0.02);
+  };
+  /* 808 cowbell */
+  Kit.prototype.cowbell = function (t, v) {
+    v = v == null ? 1 : v;
+    var bp = this.filt("bandpass", 2640, 1.2), g = this.gain(this.drums), self = this;
+    [587, 845].forEach(function (f) { var o = self.osc("square", f, t); o.connect(bp); o.start(t); o.stop(t + 0.4); });
+    bp.connect(g);
+    g.gain.setValueAtTime(EPS, t);
+    g.gain.exponentialRampToValueAtTime(0.3 * v, t + 0.002);
+    g.gain.exponentialRampToValueAtTime(0.08 * v, t + 0.06);
+    g.gain.exponentialRampToValueAtTime(EPS, t + 0.35);
+  };
+  /* G-funk whistle lead: sine+triangle, portamento from `from`, delayed vibrato */
+  Kit.prototype.lead = function (t, note, dur, v, from) {
+    v = v == null ? 1 : v;
+    var f = mtof(note), f0 = from != null ? mtof(from) : f;
+    var o = this.osc("sine", f0, t), o2 = this.osc("triangle", f0, t);
+    if (from != null) { o.frequency.exponentialRampToValueAtTime(f, t + 0.12); o2.frequency.exponentialRampToValueAtTime(f, t + 0.12); }
+    var vib = this.ctx.createOscillator(); vib.frequency.value = 5.5;
+    var vg = this.ctx.createGain(); vg.gain.setValueAtTime(0, t); vg.gain.linearRampToValueAtTime(18, t + 0.25);
+    vib.connect(vg); vg.connect(o.detune); vg.connect(o2.detune);
+    var lp = this.filt("lowpass", 2800), g = this.gain(this.music), g2 = this.ctx.createGain(); g2.gain.value = 0.35;
+    o.connect(lp); o2.connect(g2); g2.connect(lp); lp.connect(g);
+    g.gain.setValueAtTime(EPS, t);
+    g.gain.exponentialRampToValueAtTime(0.34 * v, t + 0.04);
+    g.gain.setValueAtTime(0.3 * v, t + dur);
+    g.gain.exponentialRampToValueAtTime(EPS, t + dur + 0.15);
+    this.send(g, 0.35);
+    [o, o2, vib].forEach(function (x) { x.start(t); x.stop(t + dur + 0.2); });
+  };
+  /* Supersaw stab (rage / hard trap) */
+  Kit.prototype.saw = function (t, notes, dur, v) {
+    v = v == null ? 1 : v;
+    var self = this, per = v / Math.sqrt(notes.length);
+    var lp = this.filt("lowpass", 3800, 0.8), g = this.gain(this.music); lp.connect(g);
+    notes.forEach(function (n) {
+      var f = mtof(n);
+      [-18, -7, 0, 7, 18].forEach(function (dt) {
+        var o = self.osc("sawtooth", f, t); o.detune.value = dt; o.connect(lp); o.start(t); o.stop(t + dur + 0.15);
+      });
+    });
+    g.gain.setValueAtTime(EPS, t);
+    g.gain.exponentialRampToValueAtTime(0.12 * per, t + 0.006);
+    g.gain.exponentialRampToValueAtTime(0.06 * per, t + dur * 0.6);
+    g.gain.exponentialRampToValueAtTime(EPS, t + dur + 0.1);
+    this.send(g, 0.3);
+  };
+
   Kit.prototype.dispose = function (fade) {
     var ctx = this.ctx, now = ctx.currentTime, out = this.out, self = this;
     out.gain.cancelScheduledValues(now);
@@ -342,7 +430,7 @@
     var ch = [[57, 60, 64, 67], [57, 60, 62, 65], [53, 57, 60, 64], [56, 59, 62, 64]];
     var roots = [45, 38, 41, 40];
     BEATS.push({
-      id: "boombap", name: "خاکی", genre: "بوم‌بپ", vibe: "کلاسیک، تکیه‌دار، دهه‌ی هفتاد", bpm: 88, swing: 0.14, vinyl: true,
+      id: "boombap", family: "boombap", name: "خاکی", genre: "بوم‌بپ", vibe: "کلاسیک، تکیه‌دار، دهه‌ی هفتاد", bpm: 88, swing: 0.14, vinyl: true,
       drums: function (k, bar, s, t, sd) {
         var c = at(kick, bar, s); if (c === "x") { k.kick(t, 1); k.bass(t, roots[bar % 4], sd * 2.6, 0.9); }
         c = at(snr, bar, s); if (c === "x") k.snare(t, 1); else if (c === "g") k.snare(t, 0.25, { verb: 0 });
@@ -364,7 +452,7 @@
     var ch = [[53, 57, 60, 64, 67], [52, 55, 59, 62], [50, 53, 57, 60, 64], [48, 52, 55, 59, 62]];
     var roots = [41, 40, 38, 36];
     BEATS.push({
-      id: "lofi", name: "شب‌های تهران", genre: "لوفای", vibe: "آروم، شبونه، پشت پنجره", bpm: 76, swing: 0.2, vinyl: true,
+      id: "lofi", family: "other", name: "شب‌های تهران", genre: "لوفای", vibe: "آروم، شبونه، پشت پنجره", bpm: 76, swing: 0.2, vinyl: true,
       drums: function (k, bar, s, t, sd) {
         if (at(kick, bar, s) === "x") k.kick(t, 0.85, { f0: 120, dec: 0.35 });
         if (at(snr, bar, s) === "x") k.snare(t, 0.55, { hp: 1800, dec: 0.14, verb: 0.35 });
@@ -385,7 +473,7 @@
     var mel = [[0, 0, 79], [0, 3, 75], [0, 6, 72], [0, 8, 74], [0, 10, 75], [0, 12, 72],
                [1, 0, 79], [1, 3, 77], [1, 6, 75], [1, 8, 74], [1, 11, 70], [1, 14, 72]];
     BEATS.push({
-      id: "trap", name: "دودِ شب", genre: "ترپ", vibe: "تاریک، ۸۰۸ سنگین، های‌هت تند", bpm: 70, swing: 0,
+      id: "trap", family: "trap", name: "دودِ شب", genre: "ترپ", vibe: "تاریک، ۸۰۸ سنگین، های‌هت تند", bpm: 70, swing: 0,
       drums: function (k, bar, s, t, sd) {
         evAt(b808, 2, bar, s).forEach(function (e) { k.kick(t, 0.8, { dec: 0.25 }); k.sub(t, e[2], sd * e[3], 1); });
         if (at(clp, bar, s) === "x") k.clap(t, 1);
@@ -405,7 +493,7 @@
     var b808 = [[0, 0, 38, 5, 43], [0, 6, 43, 4], [0, 10, 41, 6, 36], [1, 0, 38, 4], [1, 3, 38, 3, 45], [1, 8, 41, 4], [1, 12, 36, 4, 38]];
     var ch = [[62, 65, 69], [63, 67, 70], [62, 65, 69], [60, 63, 67]];
     BEATS.push({
-      id: "drill", name: "سرد", genre: "دریل", vibe: "سرد، تهاجمی، ۸۰۸ سُر‌خور", bpm: 71, swing: 0,
+      id: "drill", family: "trap", name: "سرد", genre: "دریل", vibe: "سرد، تهاجمی، ۸۰۸ سُر‌خور", bpm: 71, swing: 0,
       drums: function (k, bar, s, t, sd) {
         evAt(b808, 2, bar, s).forEach(function (e) {
           k.kick(t, 0.75, { dec: 0.2 });
@@ -435,7 +523,7 @@
     var hat = P("x.x.x.x.x.x.x.xr x.x.x.x.x.x.xrx.");
     var tk  = P("...x.......x.... ...x.......x..x.");
     BEATS.push({
-      id: "santur", name: "شور", genre: "ترپ ایرانی", vibe: "سنتور در دستگاه شور، ربع‌پرده‌ی واقعی", bpm: 74, swing: 0.06,
+      id: "santur", family: "persian", name: "شور", genre: "ترپ ایرانی", vibe: "سنتور در دستگاه شور، ربع‌پرده‌ی واقعی", bpm: 74, swing: 0.06,
       drums: function (k, bar, s, t, sd) {
         if (at(kick, bar, s) === "x") k.kick(t, 0.8, { dec: 0.3 });
         evAt(b808, 2, bar, s).forEach(function (e) { k.sub(t, e[2], sd * e[3], 0.95); });
@@ -455,7 +543,7 @@
     var tak = P("..x.x.....x...xx ..x.x.....x.....");
     var hat = P("..x...x...x...x. ..x...x...x...xx");
     BEATS.push({
-      id: "zurkhaneh", name: "زورخونه", genre: "ضربی", vibe: "ضرب و زنگ، پهلوونی، سنگین", bpm: 84, swing: 0.05,
+      id: "zurkhaneh", family: "persian", name: "زورخونه", genre: "ضربی", vibe: "ضرب و زنگ، پهلوونی، سنگین", bpm: 84, swing: 0.05,
       drums: function (k, bar, s, t, sd) {
         if (at(dum, bar, s) === "x") { k.dum(t, 1); if (s === 0) k.kick(t, 0.7); }
         if (at(tak, bar, s) === "x") k.tak(t, 0.85);
@@ -468,6 +556,165 @@
       }
     });
   })();
+
+  /* 7 — Golden-era boom bap: horn stabs, dry hard drums, scratch fill */
+  (function () {
+    var kick = P("x......xx.x..... x.x.....x.x..x.. x......xx.x..... x.x.....x...x.x.");
+    var snr  = P("....x..g....x... ....x.......x.g. ....x..g....x... ....x.......xgxg");
+    var hat  = P("x.x.x.x.x.x.x.x. x.x.x.x.x.x.x.o. x.x.x.x.x.x.x.x. x.x.x.x.x.x.o...");
+    var stabs = [[0, 0, [62, 65, 69], 2], [0, 3, [62, 65, 69], 2], [0, 10, [60, 64, 67], 3],
+                 [1, 0, [58, 62, 65], 2], [1, 6, [57, 61, 64], 5],
+                 [2, 0, [62, 65, 69], 2], [2, 3, [62, 65, 69], 2], [2, 10, [60, 64, 67], 3],
+                 [3, 0, [55, 58, 62], 3], [3, 8, [57, 61, 64], 4]];
+    var roots = [38, 34, 38, 43];
+    BEATS.push({
+      id: "golden", family: "boombap", name: "طلایی", genre: "بوم‌بپ دهه‌ی نود", vibe: "ترومپت، اسکرچ، درام خشک و کوبنده", bpm: 94, swing: 0.1, vinyl: true,
+      drums: function (k, bar, s, t, sd) {
+        if (at(kick, bar, s) === "x") { k.kick(t, 1, { f0: 160, dec: 0.38 }); k.bass(t, roots[bar % 4], sd * 1.8, 0.85); }
+        var c = at(snr, bar, s); if (c === "x") k.snare(t, 1.05, { hp: 1500, dec: 0.17 }); else if (c === "g") k.snare(t, 0.22, { verb: 0 });
+        hatChar(k, at(hat, bar, s), t, sd, s % 4 === 0 ? 0.85 : 0.55);
+        if (bar % 4 === 3 && (s === 12 || s === 14)) k.scratch(t, sd * 1.6, 0.8);
+      },
+      music: function (k, bar, s, t, sd) {
+        evAt(stabs, 4, bar, s).forEach(function (e) { k.brass(t, e[2], sd * e[3], 0.8); });
+      }
+    });
+  })();
+
+  /* 8 — Jazzy boom bap: walking bass, piano comps, busy kick */
+  (function () {
+    var kick = P("x..x......x..x.. x.....x...x....x");
+    var snr  = P("....x.......x... ....x.......x...");
+    var rim  = P(".......x.......x .......x....x..x");
+    var hat  = P("x.xgx.xgx.xgx.xo x.xgx.xgx.xgx.xg");
+    var ch = [[51, 55, 58, 62], [53, 56, 60, 63], [56, 60, 63, 67], [55, 59, 62, 65]];
+    var walk = [[36, 39, 43, 41], [41, 44, 48, 46], [44, 48, 51, 50], [43, 47, 50, 49]];
+    BEATS.push({
+      id: "kooche", family: "boombap", name: "کوچه", genre: "بوم‌بپ جَزی", vibe: "باس قدم‌زن، پیانوی جز، ریتمیک", bpm: 92, swing: 0.16, vinyl: true,
+      drums: function (k, bar, s, t, sd) {
+        if (at(kick, bar, s) === "x") k.kick(t, 0.95, { f0: 140 });
+        if (at(snr, bar, s) === "x") k.snare(t, 0.95);
+        if (at(rim, bar, s) === "x") k.rim(t, 0.4);
+        hatChar(k, at(hat, bar, s), t, sd, 0.55);
+      },
+      music: function (k, bar, s, t, sd) {
+        if (s % 4 === 0) k.bass(t, walk[bar % 4][s / 4], sd * 3.2, 0.9);
+        if (s === 0 || s === 7 || s === 10) k.keys("piano", t, ch[bar % 4], sd * (s === 0 ? 3 : 1.2), s === 0 ? 0.7 : 0.45);
+      }
+    });
+  })();
+
+  /* 9 — Hard east-coast boom bap: dark piano riff, whip snare, scratches */
+  (function () {
+    var kick = P("x.......x.x..... x.x.....x.....x.");
+    var hat  = P("xgxgxgxgxgxgxgxg xgxgxgxgxgxgxgog");
+    var riff = [[0, 0, 64], [0, 3, 67], [0, 6, 71], [0, 8, 70], [0, 10, 67], [0, 12, 66],
+                [1, 0, 64], [1, 3, 67], [1, 6, 72], [1, 8, 71], [1, 11, 67], [1, 14, 62]];
+    BEATS.push({
+      id: "bomb", family: "boombap", name: "بمب", genre: "بوم‌بپ سنگین", vibe: "پیانوی تاریک، اسنیر شلاقی، اسکرچ", bpm: 98, swing: 0.06, vinyl: true,
+      drums: function (k, bar, s, t, sd) {
+        if (at(kick, bar, s) === "x") { k.kick(t, 1.05, { f0: 170, f1: 42, dec: 0.45 }); k.sub(t, 40, sd * 2, 0.6); }
+        if (s === 4 || s === 12) { k.snare(t, 1.1, { hp: 1900, dec: 0.16, verb: 0.3 }); k.clap(t, 0.5); }
+        hatChar(k, at(hat, bar, s), t, sd, s % 2 === 0 ? 0.6 : 0.3);
+        if (bar % 4 === 3 && s >= 12 && s < 15) k.scratch(t, sd * 0.9, 0.7);
+      },
+      music: function (k, bar, s, t, sd) {
+        evAt(riff, 2, bar, s).forEach(function (e) { k.piano(t, e[2], sd * 1.5, 0.55); k.piano(t, e[2] - 12, sd * 1.5, 0.35); });
+        if (s === 0 && bar % 2 === 0) k.brass(t, [52, 55, 59], sd * 6, 0.45);
+      }
+    });
+  })();
+
+  /* 10 — Fast trap: punchy 808 pattern, machine-gun hats, bright bell arp */
+  (function () {
+    var hat = P("x.x.x.x.xrx.x.x. x.x.xqx.x.x.QQrr");
+    var b808 = [[0, 0, 37, 3], [0, 3, 37, 2], [0, 6, 37, 3], [0, 10, 40, 4], [0, 14, 42, 2],
+                [1, 0, 37, 3], [1, 3, 37, 2], [1, 7, 44, 3], [1, 10, 42, 3], [1, 13, 40, 3]];
+    var mel = [[0, 0, 73], [0, 2, 76], [0, 4, 80], [0, 6, 76], [0, 8, 73], [0, 10, 76], [0, 12, 81], [0, 14, 80],
+               [1, 0, 73], [1, 2, 76], [1, 4, 80], [1, 6, 83], [1, 8, 81], [1, 10, 80], [1, 12, 76], [1, 14, 75]];
+    BEATS.push({
+      id: "atish", family: "trap", name: "آتیش", genre: "ترپ تند", vibe: "۸۰۸ کوبنده، های‌هت رگباری، ملودی تیز", bpm: 78, swing: 0,
+      drums: function (k, bar, s, t, sd) {
+        evAt(b808, 2, bar, s).forEach(function (e) { k.kick(t, 0.9, { f0: 180, dec: 0.22 }); k.sub(t, e[2], sd * e[3], 1); });
+        if (s === 4 || s === 12) { k.clap(t, 1); k.snare(t, 0.6, { hp: 1800, dec: 0.14 }); }
+        hatChar(k, at(hat, bar, s), t, sd, 0.7);
+        if (s === 14 && bar % 2 === 0) k.hat(t, 0.6, true);
+      },
+      music: function (k, bar, s, t, sd) {
+        evAt(mel, 2, bar, s).forEach(function (e) { k.bell(t, e[2], sd, 0.4, 3.01, 0.6); });
+        if (s === 0 && bar % 4 === 0) k.keys("pad", t, [49, 52, 56], sd * 60, 0.5);
+      }
+    });
+  })();
+
+  /* 11 — Rage trap: supersaw stabs, distorted 808 */
+  (function () {
+    var hat = P("x.x.x.x.x.x.x.x. x.x.x.x.x.x.xrQQ");
+    var b808 = [[0, 0, 36, 6], [0, 8, 36, 2], [0, 11, 43, 4], [1, 0, 36, 4], [1, 6, 39, 3], [1, 10, 41, 6]];
+    var st = [[0, 0, [60, 63, 67], 2], [0, 3, [60, 63, 67], 2], [0, 6, [60, 63, 67], 1], [0, 10, [56, 60, 63], 3],
+              [1, 0, [55, 58, 63], 2], [1, 3, [55, 58, 63], 2], [1, 8, [58, 62, 65], 4]];
+    BEATS.push({
+      id: "khashm", family: "trap", name: "خشم", genre: "ترپ ریج", vibe: "سوپرسا، ۸۰۸ دیستورت، پرانرژی", bpm: 80, swing: 0,
+      drums: function (k, bar, s, t, sd) {
+        evAt(b808, 2, bar, s).forEach(function (e) { k.kick(t, 1, { f0: 190, f1: 50, dec: 0.2 }); k.sub(t, e[2], sd * e[3], 1.1); });
+        if (s === 4 || s === 12) { k.clap(t, 1); k.snare(t, 0.8, { hp: 1500 }); }
+        hatChar(k, at(hat, bar, s), t, sd, 0.65);
+      },
+      music: function (k, bar, s, t, sd) {
+        evAt(st, 2, bar, s).forEach(function (e) { k.saw(t, e[2], sd * e[3], 0.8); });
+      }
+    });
+  })();
+
+  /* 12 — G-funk: funky bass, EP chords, whistle lead */
+  (function () {
+    var kick = P("x.....x.x.....x. x.....x...x.....");
+    var hat  = P("x.x.x.o.x.x.x.x. x.x.x.o.x.x.x.xx");
+    var bass = [[0, 0, 43, 2], [0, 3, 43, 1], [0, 6, 46, 2], [0, 8, 43, 2], [0, 10, 50, 1], [0, 11, 48, 1], [0, 14, 46, 2],
+                [1, 0, 39, 2], [1, 3, 39, 1], [1, 6, 41, 2], [1, 8, 43, 3], [1, 12, 46, 2], [1, 14, 41, 2]];
+    var ch = [[55, 58, 62, 65], [51, 55, 58, 62]];
+    var mel = [[2, 0, 79, 6, 74], [2, 8, 77, 4], [2, 12, 74, 4], [3, 0, 74, 8, 77], [3, 10, 70, 6]];
+    BEATS.push({
+      id: "gfunk", family: "other", name: "ساحل", genre: "جی‌فانک", vibe: "وست‌کوست، سوت سینتی، باس فانکی", bpm: 96, swing: 0.08,
+      drums: function (k, bar, s, t, sd) {
+        if (at(kick, bar, s) === "x") k.kick(t, 0.95, { f0: 130, dec: 0.4 });
+        if (s === 4 || s === 12) { k.clap(t, 0.9); k.snare(t, 0.5, { hp: 2000 }); }
+        hatChar(k, at(hat, bar, s), t, sd, 0.5);
+      },
+      music: function (k, bar, s, t, sd) {
+        evAt(bass, 2, bar, s).forEach(function (e) { k.bass(t, e[2], sd * e[3], 1); });
+        if (s === 0) k.keys("ep", t, ch[bar % 2], sd * 14, 0.55);
+        evAt(mel, 4, bar, s).forEach(function (e) { k.lead(t, e[2], sd * e[3], 0.7, e[4]); });
+      }
+    });
+  })();
+
+  /* 13 — Old-school electro: 808 cowbell, claps, staccato bass, scratches */
+  (function () {
+    var kick = P("x.....x...x..... x.....x.x...x...");
+    var cow  = P("..x..x....x..x.. ..x..x....x...x.");
+    var bass = [[0, 0, 40], [0, 3, 40], [0, 6, 43], [0, 8, 40], [0, 11, 45], [0, 14, 43],
+                [1, 0, 40], [1, 3, 40], [1, 6, 47], [1, 8, 45], [1, 10, 43], [1, 12, 42], [1, 14, 43]];
+    BEATS.push({
+      id: "oldschool", family: "other", name: "اولد اسکول", genre: "الکترو هیپ‌هاپ", vibe: "کاوبل ۸۰۸، تند، حال‌وهوای دهه‌ی هشتاد", bpm: 104, swing: 0.04,
+      drums: function (k, bar, s, t, sd) {
+        if (at(kick, bar, s) === "x") k.kick(t, 1, { f0: 120, f1: 45, dec: 0.5 });
+        if (s === 4 || s === 12) k.clap(t, 1);
+        if (at(cow, bar, s) === "x") k.cowbell(t, 0.6);
+        k.hat(t, s % 4 === 2 ? 0.55 : 0.25);
+        if (bar % 4 === 3 && (s === 8 || s === 10 || s === 12)) k.scratch(t, sd * 1.4, 0.75);
+      },
+      music: function (k, bar, s, t, sd) {
+        evAt(bass, 2, bar, s).forEach(function (e) { k.bass(t, e[2], sd * 1.2, 1); });
+        if (s === 0 && bar % 2 === 0) k.saw(t, [64, 67, 71], sd * 2, 0.5);
+      }
+    });
+  })();
+
+  /* list order: boom bap first, then trap/drill, Persian, everything else */
+  var FAM = { boombap: 0, trap: 1, persian: 2, other: 3 };
+  BEATS.sort(function (a, b) { return FAM[a.family] - FAM[b.family]; });
+  QB.BEAT_FAMILIES = [["all", "همه"], ["boombap", "بوم‌بپ"], ["trap", "ترپ و دریل"], ["persian", "ایرانی"], ["other", "بقیه"]];
 
   QB.BEATS = BEATS;
   QB.beatById = function (id) { for (var i = 0; i < BEATS.length; i++) if (BEATS[i].id === id) return BEATS[i]; return null; };
@@ -618,6 +865,7 @@
   };
 
   QB.Transport = Transport;
+  QB.Kit = Kit;
 
   /* ---------- Tempo + downbeat detection for uploaded beats ---------- */
   QB.detectTempo = function (buffer) {

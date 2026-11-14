@@ -75,19 +75,33 @@ serve.js          tiny static dev server
 
 ## The beats
 
-All six are composed in code (`js/audio.js`, section *the beats*) — no samples, so no licensing issues:
+All 13 are composed in code (`js/audio.js`, section *the beats*) — no samples, so no licensing issues.
+The picker has a genre filter (همه / بوم‌بپ / ترپ و دریل / ایرانی / بقیه); Endless mode rotates only through the selected genre.
 
 | Name | Genre | BPM | Notes |
 |---|---|---|---|
 | خاکی | Boom bap | 88 | swung drums, dusty piano, vinyl crackle |
-| شب‌های تهران | Lo-fi | 76 | jazzy EP chords with tape wobble |
-| دودِ شب | Trap | 70 (half-time) | 808s, FM bell, hat rolls |
-| سرد | Drill | 71 | sliding 808s, triplet-feel hats |
+| طلایی | 90s boom bap | 94 | horn stabs, hard dry drums, scratch fills |
+| کوچه | Jazzy boom bap | 92 | walking bass, piano comps, busy kick |
+| بمب | Hard boom bap | 98 | dark piano riff, whip snare, scratches |
+| دودِ شب | Trap | 70 (≈140) | 808s, FM bell, hat rolls |
+| سرد | Drill | 71 (≈142) | sliding 808s, triplet-feel hats |
+| آتیش | Fast trap | 78 (≈156) | punchy 808 pattern, machine-gun hats, bell arp |
+| خشم | Rage trap | 80 (≈160) | supersaw stabs, distorted 808 |
 | شور | Persian trap | 74 | santur riff in Dastgah-e Shur with a real quarter-tone (E-koron) |
 | زورخونه | Zarb | 84 | zarb dum/tak, zang bell, drone |
+| شب‌های تهران | Lo-fi | 76 | jazzy EP chords with tape wobble |
+| ساحل | G-funk | 96 | funky bass, whistle lead, claps |
+| اولد اسکول | Electro / old school | 104 | 808 cowbell, staccato bass, scratches |
 
-A beat is an object `{ id, name, genre, vibe, bpm, swing, drums(kit, bar, step, time, stepDur), music(...) }`,
-called once per 16th note. Copy one to make a new one.
+Trap BPMs are written as the rap (half-time) tempo; the number in brackets is the producer's double-time BPM.
+
+A beat is an object `{ id, family, name, genre, vibe, bpm, swing, drums(kit, bar, step, time, stepDur), music(...) }`,
+called once per 16th note. `family` is one of `boombap | trap | persian | other`. Copy one to make a new one.
+Instruments available on `kit`: kick, snare, clap, hat, rim, crash, sub (808 w/ glide), bass, piano, ep, pad,
+bell, santur, zang, dum, tak, brass, scratch, cowbell, lead, saw, vinyl.
+
+Shared-library MP3s can join a genre filter by adding `"family": "boombap"` (etc.) to their manifest entry.
 
 ## User uploads vs. an admin library
 

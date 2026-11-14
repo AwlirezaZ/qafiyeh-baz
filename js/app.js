@@ -9,7 +9,7 @@
   /* ---------- persisted state ---------- */
   var DEFAULTS = {
     mode: "classic", level: "beginner", fill: "all", scheme: "aabb", speed: 1,
-    list: "all", clean: false, beat: "boombap", bars: 16, switchEvery: 16,
+    list: "all", clean: false, beat: "golden", beatFilter: "all", bars: 16, switchEvery: 16,
     tapBpm: 90, click: false, theme: "poster", lag: 0
   };
   var S = {};
@@ -88,7 +88,7 @@
 
   /* beat descriptors shown in the picker */
   var library = QB.BEATS.map(function (b) {
-    return { id: b.id, kind: "synth", name: b.name, genre: b.genre, vibe: b.vibe, bpm: b.bpm };
+    return { id: b.id, kind: "synth", family: b.family, name: b.name, genre: b.genre, vibe: b.vibe, bpm: b.bpm };
   });
   var mine = [];          // user uploads (IndexedDB)
   var decoded = {};       // id -> AudioBuffer cache
@@ -115,7 +115,7 @@
         if (!Array.isArray(list)) return;
         list.forEach(function (e, i) {
           if (!e || !e.file || !e.bpm) return;
-          library.push({ id: "lib-" + i, kind: "file", src: "beats/" + e.file, name: e.name || e.file,
+          library.push({ id: "lib-" + i, kind: "file", src: "beats/" + e.file, name: e.name || e.file, family: e.family || null,
                          genre: e.genre || "بیت", vibe: e.vibe || "", bpm: +e.bpm, offset: +e.offset || 0 });
         });
         renderBeats();
@@ -218,16 +218,25 @@
   }
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
 
+  function inFilter(b) { return S.beatFilter === "all" || b.family === S.beatFilter; }
+
   function renderBeats() {
+    var fbox = $("#beatFilter"); fbox.innerHTML = "";
+    QB.BEAT_FAMILIES.forEach(function (f) {
+      var n = library.filter(function (b) { return (f[0] === "all" || b.family === f[0]) && (S.mode !== "endless" || b.kind === "synth"); }).length;
+      var c = chip(f[1] + " <small class=\"count\">" + fa(n) + "</small>", "", S.beatFilter === f[0], { bfilter: f[0] });
+      c.classList.add("sm");
+      fbox.appendChild(c);
+    });
     var box = $("#beatList"); box.innerHTML = "";
-    var list = S.mode === "endless" ? library.filter(function (b) { return b.kind === "synth"; }) : library;
+    var list = library.filter(function (b) { return inFilter(b) && (S.mode !== "endless" || b.kind === "synth"); });
     list.forEach(function (b) { box.appendChild(beatCard(b)); });
     var mbox = $("#mineList"); mbox.innerHTML = "";
-    var showMine = S.mode === "classic" && mine.length > 0;
+    var showMine = S.mode === "classic" && mine.length > 0 && S.beatFilter === "all";
     $("#mineHead").hidden = !showMine;
     if (showMine) mine.forEach(function (b) { mbox.appendChild(beatCard(b)); });
     $(".upload-card").hidden = S.mode !== "classic";
-    if (!findBeat(S.beat) || (S.mode === "endless" && findBeat(S.beat).kind !== "synth")) { S.beat = "boombap"; renderBeats(); }
+    if (!findBeat(S.beat) || (S.mode === "endless" && findBeat(S.beat).kind !== "synth")) { S.beat = "golden"; renderBeats(); }
     updatePreviewButtons();
   }
 
@@ -404,7 +413,11 @@
     if (!b) return;
     if (b.kind === "synth") {
       var beats = [QB.beatById(b.id)];
-      if (S.mode === "endless") beats = beats.concat(QB.shuffle(QB.BEATS.filter(function (x) { return x.id !== b.id; })));
+      if (S.mode === "endless") {
+        var pool = QB.BEATS.filter(function (x) { return x.id !== b.id && inFilter(x); });
+        if (!pool.length) pool = QB.BEATS.filter(function (x) { return x.id !== b.id; });
+        beats = beats.concat(QB.shuffle(pool));
+      }
       return go({ kind: "synth", beats: beats });
     }
     $("#startBtn").disabled = true;
@@ -530,9 +543,10 @@
     buildMeter();
 
     document.addEventListener("click", function (e) {
-      var t = e.target.closest("[data-go],[data-mode],[data-open],[data-level],[data-fill],[data-scheme],[data-speed],[data-list],[data-bars],[data-every],[data-preview],[data-del],[data-beat],[data-bpm],.theme-dot");
+      var t = e.target.closest("[data-bfilter],[data-go],[data-mode],[data-open],[data-level],[data-fill],[data-scheme],[data-speed],[data-list],[data-bars],[data-every],[data-preview],[data-del],[data-beat],[data-bpm],.theme-dot");
       if (!t) return;
       var d = t.dataset;
+      if (d.bfilter) { S.beatFilter = d.bfilter; save(); renderBeats(); return; }
       if (d.go) { e.preventDefault(); if (game.running) game.stop(true); show(d.go); return; }
       if (d.mode && !t.closest(".setup")) { S.mode = d.mode; save(); renderSetup(); show("setup"); return; }
       if (d.open === "settings") { $("#settingsDlg").showModal(); return; }
@@ -554,7 +568,7 @@
           mine = mine.filter(function (x) { return x.id !== b.id; });
           delete decoded[b.id];
           DB.del(b.id).catch(function () {});
-          if (S.beat === b.id) S.beat = "boombap";
+          if (S.beat === b.id) S.beat = "golden";
           save(); renderBeats(); updateSummary();
         }
         return;
