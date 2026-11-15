@@ -1106,12 +1106,28 @@
     });
     // in the Android app a download link can't save files — write to Documents/Qafiyeh-Baz instead
     $("#recSave").addEventListener("click", function (e) {
-      if (!QB.native.is || !recFile) return;
+      if (!recFile) return;
+      if (!QB.native.is) {
+        // website: a fresh link per tap is more reliable than re-using one; in-app browsers block downloads
+        e.preventDefault();
+        if (/Telegram|Instagram|FBAN|FBAV|; wv\)/i.test(navigator.userAgent)) {
+          globalToast("مرورگرِ داخل این برنامه دانلود رو بلاک می‌کنه — سایت رو توی Chrome باز کن", 6000);
+          return;
+        }
+        var a = document.createElement("a");
+        a.href = recUrl; a.download = recFile.name; a.rel = "noopener"; a.style.display = "none";
+        document.body.appendChild(a); a.click();
+        setTimeout(function () { a.remove(); }, 1000);
+        globalToast("دانلود شد — توی پوشه‌ی Download / دانلودها", 4000);
+        return;
+      }
       e.preventDefault();
       var btn = this;
       busy(btn, true);
       QB.native.saveFile(recFile, recFile.name)
-        .then(function () { globalToast("ذخیره شد: پوشه‌ی Documents/Qafiyeh-Baz", 4000); })
+        .then(function (where) {
+          globalToast(where.indexOf("Movies") === 0 ? "ذخیره شد — توی گالری، آلبوم Qafiyeh-Baz" : "ذخیره شد: پوشه‌ی " + where, 4500);
+        })
         .catch(function (e) { globalToast("ذخیره نشد: " + errMsg(e) + " — از «اشتراک» استفاده کن", 5000); })
         .then(function () { busy(btn, false); });
     });

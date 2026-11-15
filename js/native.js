@@ -63,9 +63,15 @@
     });
   };
 
-  /* save a recorded video to Documents/Qafiyeh-Baz (visible in the phone's file manager) */
+  /* save a recorded video where the gallery can see it: Movies/Qafiyeh-Baz.
+     (Android 11+ needs no permission for this; Android 10 and older ask once.)
+     Falls back to Documents/Qafiyeh-Baz if Movies isn't writable. Resolves to the folder used. */
   N.saveFile = function (blob, name) {
-    return call("Filesystem", "requestPermissions").catch(function () {})   // only matters on Android ≤ 9
-      .then(function () { return writeBlob(blob, "Qafiyeh-Baz/" + name, "DOCUMENTS"); });
+    return call("Filesystem", "requestPermissions").catch(function () {})
+      .then(function () { return writeBlob(blob, "Movies/Qafiyeh-Baz/" + name, "EXTERNAL_STORAGE"); })
+      .then(function () { return "Movies/Qafiyeh-Baz"; })
+      .catch(function () {
+        return writeBlob(blob, "Qafiyeh-Baz/" + name, "DOCUMENTS").then(function () { return "Documents/Qafiyeh-Baz"; });
+      });
   };
 })();
