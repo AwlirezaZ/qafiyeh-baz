@@ -3,3 +3,7 @@ Thumbs.db
 *.log
 node_modules/
 www/
+
+# rendered promo videos (big; send them, don't commit them)
+promo/*.mp4
+promo/*.webm

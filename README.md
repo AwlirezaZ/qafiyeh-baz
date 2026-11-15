@@ -202,3 +202,16 @@ throwaway key, so **uninstall the old debug build before installing a newer one*
 
 ### Working on the Android project locally (optional)
 Install Android Studio, then `npm install`, `npm run android:sync` and open the `android/` folder in Android Studio.
+
+## Teaser video
+
+`promo/teaser.html` is a 20-second 9:16 teaser (1080×1920) drawn on a canvas and synced to the beat
+("Oldskool Loop" by makshahn, CC0). Open it in a browser and press ▶ to preview. To render the MP4:
+```bash
+npm install
+node scripts/render-teaser.mjs            # → promo/qafiyeh-baz-teaser.mp4
+node scripts/render-teaser.mjs --sheet frames.png   # also saves 6 frames decoded back from the MP4
+```
+It renders frame by frame in headless Chrome (WebCodecs + [Mediabunny](https://mediabunny.dev), MPL-2.0), so the
+result is a normal MP4 (H.264 + AAC) with a proper duration — fine for Instagram, Telegram and Bazaar.
+Edit the texts, words and timing in the scene functions in `promo/teaser.html`. Rendered videos are git-ignored.

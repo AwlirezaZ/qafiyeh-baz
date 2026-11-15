@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>قافیه‌باز — تیزر</title>
+<link rel="stylesheet" href="../css/fonts.css">
+<style>
+  html, body { margin: 0; height: 100%; background: #000; color: #efe9dc; font-family: Vazirmatn, Tahoma, sans-serif; }
+  body { display: grid; place-items: center; }
+  canvas { height: 96vh; aspect-ratio: 9 / 16; background: #0f0f0e; }
+  #play { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); padding: 10px 22px; font: inherit; font-weight: 700;
+          background: #ff5b1f; color: #0f0f0e; border: 0; cursor: pointer; }
+</style>
+</head>
+<body>
+<canvas id="c" width="1080" height="1920"></canvas>
+<button id="play">▶ پخش تیزر</button>
+<script>
+/*
+ * قافیه‌باز teaser — 9:16, 8 bars (~20 s) synced to "Oldskool Loop" by makshahn (CC0, Freesound).
+ * Open this page and press play to preview; scripts/render-teaser.mjs records it to MP4 with window.renderTeaser().
+ */
+(function () {
+  var W = 1080, H = 1920;
+  var BEAT_URL = "https://cdn.freesound.org/previews/149/149015_2675426-hq.mp3";
+  var BPM_HINT = 95, BARS = 8;
+  var C = { bg: "#0f0f0e", surface: "#181816", line: "#37352f", text: "#efe9dc", muted: "#8f8a7d",
+            accent: "#ff5b1f", ink: "#0f0f0e", r: ["#ff5b1f", "#ffd23f", "#efe9dc", "#ff5c93"] };
+  var DISPLAY = "Lalezar, Vazirmatn, sans-serif", BODY = "Vazirmatn, sans-serif";
+  var canvas = document.getElementById("c"), g = canvas.getContext("2d");
+
+  /* ---------- tiny animation helpers ---------- */
+  function clamp(x) { return x < 0 ? 0 : x > 1 ? 1 : x; }
+  function outBack(x) { x = clamp(x); var c = 1.9; return 1 + (c + 1) * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); }
+  function outCubic(x) { x = clamp(x); return 1 - Math.pow(1 - x, 3); }
+  function rr(x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+  function text(str, x, y, size, color, font, align) {
+    g.font = size + "px " + (font || DISPLAY); g.fillStyle = color; g.textAlign = align || "center"; g.direction = "rtl"; g.textBaseline = "middle";
+    g.fillText(str, x, y);
+  }
+  /* poster-style text: orange misprint shadow under bone text */
+  function inkText(str, x, y, size, a) {
+    g.save(); g.globalAlpha = a == null ? 1 : a;
+    text(str, x + size * 0.045, y + size * 0.035, size, C.accent);
+    text(str, x, y, size, C.text);
+    g.restore();
+  }
+  /* pop-in: scale from big + fade, triggered at time `at` (in beats) */
+  function pop(beat, at, dur) { var p = (beat - at) / (dur || 0.5); return { p: clamp(p), s: p < 0 ? 0 : 1 + (1 - outBack(p)) * 0.6, a: clamp(p * 3) }; }
+
+  // static grain texture
+  var grain = document.createElement("canvas"); grain.width = 360; grain.height = 640;
+  (function () { var gc = grain.getContext("2d"), im = gc.createImageData(360, 640);
+    for (var i = 0; i < im.data.length; i += 4) { var v = Math.random() * 255; im.data[i] = im.data[i + 1] = im.data[i + 2] = v; im.data[i + 3] = 18; }
+    gc.putImageData(im, 0, 0); })();
+
+  /* ---------- scenes (beat = quarter notes since the start) ---------- */
+  function background(beat) {
+    g.fillStyle = C.bg; g.fillRect(0, 0, W, H);
+    g.drawImage(grain, 0, 0, W, H);
+    // kick pulse: a thin accent bar that swells on every beat
+    var ph = beat - Math.floor(beat), k = Math.exp(-ph * 6);
+    g.fillStyle = C.accent; g.globalAlpha = 0.85;
+    g.fillRect(0, H - 14 - k * 10, W, 14 + k * 10);
+    g.globalAlpha = 1;
+  }
+
+  function sceneHook(beat) {   // bar 0: one word per beat
+    var words = ["می‌خوای", "فری‌استایل", "رپ", "کنی؟"];
+    for (var i = 0; i < 4; i++) {
+      var p = pop(beat, i, 0.45); if (!p.p && beat < i) continue;
+      g.save(); g.translate(W / 2, 560 + i * 250); g.scale(p.s, p.s); g.globalAlpha = p.a;
+      var size = i === 1 ? 190 : 210;
+      if (i === 3) { text(words[i], 6, 6, size, C.accent); text(words[i], 0, 0, size, C.text); }
+      else text(words[i], 0, 0, size, i === 1 ? C.accent : C.text);
+      g.restore();
+    }
+  }
+
+  function sceneTagline(beat) {   // bar 1
+    var b = beat - 4, p1 = pop(b, 0, 0.5), p2 = pop(b, 2, 0.5);
+    g.save(); g.translate(W / 2, 820); g.scale(p1.s, p1.s); g.globalAlpha = p1.a; inkText("ضرب رو بگیر،", 0, 0, 150); g.restore();
+    if (b >= 2) { g.save(); g.translate(W / 2, 1060); g.scale(p2.s, p2.s); g.globalAlpha = p2.a; inkText("قافیه رو ما می‌دیم.", 0, 0, 132); g.restore(); }
+  }
+
+  /* bars 2–4: the actual game grid, ball and rhymes */
+  var WORDS = [["بهار", 0], ["قرار", 0], ["خیابون", 1], ["بارون", 1], ["رفیق", 3], ["عمیق", 3], ["فرار", 0]];
+  function sceneGame(beat) {
+    var gb = beat - 8;                           // grid beats since gameplay started
+    var a = clamp((beat - 8) / 0.5);
+    g.save(); g.globalAlpha = a;
+    text("تو فقط خالی‌ها رو پر کن", W / 2, 300, 96, C.text);
+    text("توپ رو دنبال کن، قافیه رو روی ضرب چهارم بکوب", W / 2, 400, 40, C.muted, BODY);
+    var rowH = 200, top = 640, pad = 70, gap = 18, unit = (W - pad * 2 - gap * 3) / 5.1, fr = [1, 1, 1, 2.1];
+    var xs = [], x = W - pad;
+    for (var i = 0; i < 4; i++) { var w = unit * fr[i]; x -= w; xs.push({ x: x, w: w }); x -= gap; }
+    var pos = Math.max(0, gb / 4), whole = Math.floor(pos), frac = pos - whole;
+    var scroll = whole + (frac > 0.8 ? (function (t) { return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; })((frac - 0.8) / 0.2) : 0);
+    g.save(); g.beginPath(); g.rect(0, top - 20, W, rowH * 4 + 40); g.clip();
+    for (var r = Math.max(0, whole - 1); r <= whole + 4 && r < WORDS.length; r++) {
+      var y = top + (r - scroll + 1) * rowH, d = r - whole;
+      g.globalAlpha = a * (d < 0 ? 0.3 : d >= 3 ? 0.45 : 1);
+      for (var c = 0; c < 4; c++) {
+        var cell = xs[c], hit = d === 0 && Math.floor(gb - whole * 4) === c && (gb % 1) < 0.18;
+        rr(cell.x, y + 12, cell.w, rowH - 24, 4);
+        if (c === 3) {
+          var col = C.r[WORDS[r][1]];
+          g.fillStyle = col; g.fill();
+          text(WORDS[r][0], cell.x + cell.w / 2, y + rowH / 2 + 6, 92, C.ink);
+        } else {
+          g.fillStyle = hit ? C.accent : C.surface; g.fill(); g.lineWidth = 4; g.strokeStyle = C.line; g.stroke();
+          g.beginPath(); g.arc(cell.x + cell.w / 2, y + rowH / 2, 8, 0, Math.PI * 2); g.fillStyle = C.muted; g.fill();
+        }
+      }
+    }
+    // the bouncing ball
+    g.globalAlpha = a;
+    var bb = Math.max(0, gb), bi = Math.floor(bb), f = bb - bi;
+    var b1 = Math.floor(bi / 4), c1 = bi % 4, b2 = Math.floor((bi + 1) / 4), c2 = (bi + 1) % 4;
+    var y1 = top + (b1 - scroll + 1) * rowH, y2 = top + (b2 - scroll + 1) * rowH;
+    var cx1 = xs[c1].x + xs[c1].w / 2, cx2 = xs[c2].x + xs[c2].w / 2, lift = rowH * 0.6 * 4 * f * (1 - f);
+    var bx = cx1 + (cx2 - cx1) * f, by = y1 + (y2 - y1) * f + 16 - lift;
+    g.beginPath(); g.arc(bx + 7, by + 7, 30, 0, Math.PI * 2); g.fillStyle = C.accent; g.fill();
+    g.beginPath(); g.arc(bx, by, 30, 0, Math.PI * 2); g.fillStyle = C.text; g.fill();
+    g.lineWidth = 7; g.strokeStyle = C.bg; g.stroke();
+    g.restore(); g.restore();
+  }
+
+  function sceneFeatures(beat) {   // bar 5: one card per beat
+    var b = beat - 20;
+    var items = [["۱۸", "بیت اورجینال"], ["بیت‌باکس", "و اولد اسکول"], ["چالش", "هر روز یه چالش تازه"], ["ضبط", "ویدیو برای استوری"]];
+    for (var i = 0; i < 4; i++) {
+      if (b < i) continue;
+      var p = pop(b, i, 0.4), y = 430 + i * 330, rot = (i % 2 ? 1 : -1) * 0.025;
+      g.save(); g.translate(W / 2, y); g.rotate(rot); g.scale(p.s, p.s); g.globalAlpha = p.a;
+      rr(-430, -130, 860, 260, 6); g.fillStyle = i === 0 ? C.accent : C.surface; g.fill();
+      g.lineWidth = 6; g.strokeStyle = i === 0 ? C.accent : C.text; g.stroke();
+      text(items[i][0], 400, -14, 130, i === 0 ? C.ink : C.accent, DISPLAY, "right");
+      text(items[i][1], -400, 6, 62, i === 0 ? C.ink : C.text, BODY, "left");
+      g.restore();
+    }
+  }
+
+  function sceneLogo(beat) {   // bars 6–7: logo slam, tagline, call to action
+    var b = beat - 24, slam = pop(b, 0, 0.35);
+    var shake = b >= 0 && b < 0.3 ? (Math.random() - 0.5) * 18 * (1 - b / 0.3) : 0;
+    g.save(); g.translate(W / 2 + shake, 640 + shake); g.scale(slam.s, slam.s); g.globalAlpha = slam.a;
+    inkText("قافیه‌باز", 0, 0, 300); g.restore();
+    if (b >= 1.5) { var t = pop(b, 1.5, 0.5); g.save(); g.globalAlpha = t.a; text("بازی تمرین فری‌استایل رپ", W / 2, 880, 64, C.muted, BODY); g.restore(); }
+    if (b >= 4) {   // bar 7
+      var c = pop(b, 4, 0.45);
+      g.save(); g.translate(W / 2, 1130); g.scale(c.s, c.s); g.globalAlpha = c.a;
+      rr(-400, -95, 800, 190, 6); g.fillStyle = C.accent; g.fill();
+      text("همین الان بازی کن", 0, 4, 104, C.ink); g.restore();
+    }
+    if (b >= 5) {
+      var u = pop(b, 5, 0.4);
+      g.save(); g.globalAlpha = u.a; g.direction = "ltr";
+      g.font = "600 50px Vazirmatn, sans-serif"; g.fillStyle = C.text; g.textAlign = "center"; g.textBaseline = "middle";
+      g.fillText("awlirezaz.github.io/qafiyeh-baz", W / 2, 1330); g.restore();
+    }
+    if (b >= 6) {
+      var z = pop(b, 6, 0.45);
+      g.save(); g.translate(W / 2, 1530); g.rotate(-0.04); g.scale(z.s, z.s); g.globalAlpha = z.a;
+      rr(-330, -70, 660, 140, 6); g.fillStyle = C.r[1]; g.fill();
+      text("به‌زودی در کافه‌بازار", 0, 4, 76, C.ink); g.restore();
+    }
+  }
+
+  function frame(beat) {
+    background(beat);
+    if (beat < 4) sceneHook(beat);
+    else if (beat < 8) sceneTagline(beat);
+    else if (beat < 20) sceneGame(beat);
+    else if (beat < 24) sceneFeatures(beat);
+    else sceneLogo(beat);
+  }
+
+  /* ---------- audio + playback ---------- */
+  var ctx = null, buf = null, bpm = BPM_HINT;
+  function prepare() {
+    ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
+    var fontsReady = Promise.all([document.fonts.load("100px Lalezar", "قافیه"), document.fonts.load("600 50px Vazirmatn", "قافیه a")]);
+    var audio = buf ? Promise.resolve(buf) : fetch(BEAT_URL).then(function (r) { if (!r.ok) throw new Error("beat " + r.status); return r.arrayBuffer(); })
+      .then(function (ab) { return new Promise(function (res, rej) { ctx.decodeAudioData(ab, res, rej); }); })
+      .then(function (b) { buf = b; var bars = Math.max(1, Math.round(b.duration * BPM_HINT / 240)); bpm = bars * 240 / b.duration; return b; });
+    return Promise.all([fontsReady, audio]);
+  }
+  /* plays the teaser once; `dest` (optional) also receives the audio for recording */
+  var stats = { frames: 0, lastBeat: 0 };
+  function play(dest, useTimer) {
+    // recording runs in a background browser, where animation frames are throttled → drive it with a timer instead
+    var tick = useTimer ? function (fn) { setTimeout(fn, 1000 / 60); } : requestAnimationFrame;
+    stats.frames = 0;
+    var t0 = ctx.currentTime + 0.25, beatDur = 60 / bpm, total = BARS * 4 * beatDur;
+    var src = ctx.createBufferSource(); src.buffer = buf;
+    var gain = ctx.createGain();
+    gain.gain.setValueAtTime(1, t0 + total - 0.6);
+    gain.gain.linearRampToValueAtTime(0, t0 + total);
+    src.connect(gain); gain.connect(ctx.destination); if (dest) gain.connect(dest);
+    src.start(t0, 0); src.stop(t0 + total + 0.1);
+    return new Promise(function (done) {
+      (function loop() {
+        var t = ctx.currentTime - t0;
+        frame(Math.max(0, t / beatDur));
+        stats.frames++; stats.lastBeat = t / beatDur;
+        if (t < total + 0.15) tick(loop); else done();
+      })();
+    });
+  }
+
+  document.getElementById("play").onclick = function () {
+    this.disabled = true;
+    prepare().then(function () { return ctx.resume(); }).then(function () { return play(); }).then(function () { document.getElementById("play").disabled = false; });
+  };
+  frame(26.5);   // a still of the ending as the page's resting state
+
+  /* Renders the teaser to an MP4, frame by frame (not in real time): every frame is drawn at its exact
+     timestamp and encoded with WebCodecs; the audio is rendered offline. Uses Mediabunny (dev dependency),
+     so it needs the project served over http — scripts/render-teaser.mjs does that. Returns { base64, … }. */
+  window.renderTeaser = async function () {
+    await prepare();
+    var MB = await import("../node_modules/mediabunny/dist/bundles/mediabunny.min.mjs");
+    var fps = 30, beatDur = 60 / bpm, total = BARS * 4 * beatDur;
+
+    // audio: the loop, with a short fade at the end, rendered offline
+    var sr = 48000, oc = new OfflineAudioContext(2, Math.ceil(sr * total), sr);
+    var s = oc.createBufferSource(); s.buffer = buf;
+    var fade = oc.createGain();
+    fade.gain.setValueAtTime(0.86, 0);   // ~1 dB headroom: the loop's peaks go slightly over full scale
+    fade.gain.setValueAtTime(0.86, total - 0.6); fade.gain.linearRampToValueAtTime(0, total);
+    s.connect(fade); fade.connect(oc.destination); s.start(0, 0);
+    var audio = await oc.startRendering();
+
+    var target = new MB.BufferTarget();
+    var output = new MB.Output({ format: new MB.Mp4OutputFormat({ fastStart: "in-memory" }), target: target });
+    var video = new MB.CanvasSource(canvas, { codec: "avc", bitrate: 8000000, keyFrameInterval: 2 });
+    output.addVideoTrack(video, { frameRate: fps });
+    var acodec = (await MB.canEncodeAudio("aac")) ? "aac" : "opus";
+    var sound = new MB.AudioBufferSource({ codec: acodec, bitrate: 192000 });
+    output.addAudioTrack(sound);
+    await output.start();
+
+    var n = Math.round(total * fps);
+    for (var i = 0; i < n; i++) {
+      var t = i / fps;
+      frame(t / beatDur);
+      await video.add(t, 1 / fps);
+    }
+    await sound.add(audio);
+    await output.finalize();
+
+    var bytes = new Uint8Array(target.buffer), bin = "";
+    for (var j = 0; j < bytes.length; j += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(j, j + 0x8000));
+    return { base64: btoa(bin), mime: "video/mp4 (H.264 + " + acodec + ")", bpm: bpm, seconds: total, frames: n };
+  };
+})();
+</script>
+</body>
+</html>
