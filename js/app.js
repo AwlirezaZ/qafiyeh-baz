@@ -747,6 +747,11 @@
       res.dailyDone = !!res.cfg.daily && !res.early && res.bars >= res.cfg.bars;
       res.streak = Stats.record(res, beatName, res.dailyDone ? res.cfg.daily : null);
       showReview(res);
+      // one-time tip on phones, where sound delay is most common
+      if (!S.syncTip && res.bars > 0 && (QB.native.is || /Android|iPhone|iPad/i.test(navigator.userAgent))) {
+        S.syncTip = true; save();
+        setTimeout(function () { globalToast("توپ با صدا جور نبود؟ تنظیمات ⚙ ← «اندازه‌گیری خودکار با ضربه»", 6000); }, 1200);
+      }
       $("#recDot").hidden = true;
       if (recActive) {
         recActive = false;
@@ -770,7 +775,7 @@
     $("#recVideo").src = r.url;
     $("#recSave").href = r.url;
     $("#recSave").setAttribute("download", name);
-    $("#recShare").hidden = !(QB.native.is || (navigator.canShare && navigator.canShare({ files: [recFile] })));
+    $("#recShare").hidden = !(QB.native.is || navigator.share);
   }
 
   function buildCfg() {
@@ -889,7 +894,12 @@
     var info = dailyInfo();
     var url = location.origin + location.pathname.replace(/index\.html$/, "");
     var text = "چالش امروز قافیه‌باز (" + info.date + ") رو کامل کردم — " + fa(info.bars) + " بار روی «" + info.beat.name + "». تو هم امتحان کن:";
-    if (QB.native.is) { url = "https://awlirezaz.github.io/qafiyeh-baz/"; QB.native.shareText("قافیه‌باز", text, url).catch(function () {}); }
+    if (QB.native.is) {
+      url = "https://awlirezaz.github.io/qafiyeh-baz/";
+      QB.native.shareText("قافیه‌باز", text, url).catch(function (e) {
+        var m = QB.native.errText(e); if (m.toLowerCase().indexOf("cancel") < 0) globalToast("اشتراک انجام نشد: " + m, 5000);
+      });
+    }
     else if (navigator.share) navigator.share({ title: "قافیه‌باز", text: text, url: url }).catch(function () {});
     else if (navigator.clipboard) navigator.clipboard.writeText(text + " " + url).then(function () { globalToast("متن کپی شد — بفرستش برای رفیقات"); });
   }
@@ -1073,19 +1083,37 @@
     $("#camToggle").addEventListener("change", function (e) { S.cam = e.target.checked; save(); });
     $("#dailyBtn").addEventListener("click", startDaily);
     $("#dailyShare").addEventListener("click", shareDaily);
+    function errMsg(e) { return (e && (e.message || e.errorMessage || e.name)) || String(e); }
+    function isCancel(e) { var m = errMsg(e).toLowerCase(); return (e && e.name === "AbortError") || m.indexOf("cancel") >= 0; }
+    function busy(btn, on) { btn.disabled = on; btn.classList.toggle("is-busy", on); }
     $("#recShare").addEventListener("click", function () {
       if (!recFile) return;
-      if (QB.native.is) QB.native.shareFile(recFile, recFile.name).catch(function () { globalToast("اشتراک انجام نشد"); });
-      else if (navigator.canShare && navigator.canShare({ files: [recFile] }))
-        navigator.share({ files: [recFile], title: "قافیه‌باز" }).catch(function () {});
+      var btn = this;
+      if (QB.native.is) {
+        busy(btn, true);
+        QB.native.shareFile(recFile, recFile.name)
+          .catch(function (e) { if (!isCancel(e)) globalToast("اشتراک انجام نشد: " + errMsg(e), 5000); })
+          .then(function () { busy(btn, false); });
+        return;
+      }
+      // website: share sheet with just the file (adding a title breaks some Android targets);
+      // if the phone refuses, fall back to downloading the video
+      navigator.share({ files: [recFile] }).catch(function (e) {
+        if (isCancel(e)) return;
+        globalToast("اشتراک مستقیم نشد (" + errMsg(e) + ") — ویدیو دانلود شد، از گالری بفرستش", 5000);
+        $("#recSave").click();
+      });
     });
     // in the Android app a download link can't save files — write to Documents/Qafiyeh-Baz instead
     $("#recSave").addEventListener("click", function (e) {
       if (!QB.native.is || !recFile) return;
       e.preventDefault();
+      var btn = this;
+      busy(btn, true);
       QB.native.saveFile(recFile, recFile.name)
-        .then(function () { globalToast("ذخیره شد: Documents/Qafiyeh-Baz", 3500); })
-        .catch(function () { globalToast("ذخیره نشد — از «اشتراک» استفاده کن", 3500); });
+        .then(function () { globalToast("ذخیره شد: پوشه‌ی Documents/Qafiyeh-Baz", 4000); })
+        .catch(function (e) { globalToast("ذخیره نشد: " + errMsg(e) + " — از «اشتراک» استفاده کن", 5000); })
+        .then(function () { busy(btn, false); });
     });
 
     // Android back button: close dialogs, leave the game, go back to home, then exit
@@ -1122,6 +1150,53 @@
     var lag = $("#lagRange");
     lag.value = S.lag; $("#lagOut").textContent = fa(S.lag) + " ms";
     lag.addEventListener("input", function () { S.lag = +lag.value; $("#lagOut").textContent = fa(S.lag) + " ms"; save(); });
+
+    /* Tap-to-calibrate: play ticks, the player taps along, and we measure how late this phone/headset
+       really plays sound (often more than the browser reports). The video recording is unaffected:
+       it is built from the audio engine's own clock, so it's always in sync. */
+    var calib = null, CAL_BEAT = 0.8, CAL_TICKS = 20, CAL_SKIP = 3, CAL_NEED = 8;
+    function setLag(ms) { S.lag = ms; save(); lag.value = ms; $("#lagOut").textContent = fa(ms) + " ms"; }
+    function calibDots(n) {
+      $("#calibDots").innerHTML = Array.apply(null, Array(CAL_NEED)).map(function (_, i) { return '<i class="' + (i < n ? "on" : "") + '"></i>'; }).join("");
+    }
+    function finishCalib(cancelled) {
+      var c = calib; if (!c) return;
+      calib = null; clearTimeout(c.timer); c.kit.dispose(0.05);
+      $("#calibStart").disabled = false;
+      $("#calibPad").hidden = true;
+      if (cancelled) { $("#calibRun").hidden = true; return; }
+      var o = c.offsets.slice().sort(function (a, b) { return a - b; });
+      if (o.length < CAL_NEED) { $("#calibMsg").textContent = "ضربه‌ها کم بود (" + fa(o.length) + " تا). دوباره امتحان کن و با هر تیک بزن."; return; }
+      var med = o[Math.floor(o.length / 2)], spread = o[Math.floor(o.length * 0.8)] - o[Math.floor(o.length * 0.2)];
+      if (spread > 0.14) { $("#calibMsg").textContent = "ضربه‌ها خیلی نامنظم بود. یه بار دیگه، آروم و دقیق با تیک‌ها بزن."; return; }
+      var ms = Math.round((med - QB.audio.latency()) * 1000 / 5) * 5;
+      ms = Math.max(-150, Math.min(600, ms));
+      setLag(ms);
+      $("#calibMsg").textContent = "تمام! صدای گوشیت حدود " + fa(Math.round(med * 1000)) + " میلی‌ثانیه دیرتر می‌رسه — هماهنگی تنظیم شد (" + fa(ms) + " ms).";
+    }
+    $("#calibStart").addEventListener("click", function () {
+      if (calib) return;
+      var ctx = QB.audio.ensure(), t0 = ctx.currentTime + 0.6, kit = new QB.Kit(ctx, 0.9), ticks = [];
+      for (var i = 0; i < CAL_TICKS; i++) { var t = t0 + i * CAL_BEAT; ticks.push(t); kit.click(t, i % 4 === 0); }
+      calib = { ctx: ctx, kit: kit, ticks: ticks, offsets: [] };
+      calib.timer = setTimeout(function () { finishCalib(false); }, (t0 - ctx.currentTime + CAL_TICKS * CAL_BEAT + 0.6) * 1000);
+      $("#calibRun").hidden = false; $("#calibPad").hidden = false; $("#calibStart").disabled = true;
+      $("#calibMsg").textContent = "گوش بده… از تیک چهارم به بعد، با هر تیک روی دایره بزن (" + fa(CAL_NEED) + " بار کافیه)";
+      calibDots(0);
+    });
+    $("#calibPad").addEventListener("pointerdown", function (e) {
+      e.preventDefault();
+      if (!calib) return;
+      var pad = this; pad.classList.remove("pulse"); void pad.offsetWidth; pad.classList.add("pulse");
+      // audio-clock time of the tap (event.timeStamp is when the touch happened)
+      var at = calib.ctx.currentTime - Math.max(0, performance.now() - e.timeStamp) / 1000;
+      // taps belong to the tick before them (allowing up to 0.2 s early); sound is never early by more
+      var k = Math.floor((at - calib.ticks[0] + 0.2) / CAL_BEAT);
+      if (k < CAL_SKIP || k >= calib.ticks.length) return;
+      calib.offsets.push(at - calib.ticks[k]);
+      calibDots(calib.offsets.length);
+    });
+    $("#settingsDlg").addEventListener("close", function () { finishCalib(true); });
 
     $("#startBtn").addEventListener("click", function () { startGame(); });
     $("#quitBtn").addEventListener("click", quitGame);

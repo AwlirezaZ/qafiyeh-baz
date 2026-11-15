@@ -337,10 +337,18 @@
         <h4>صدا و تصویر</h4>
         <div class="range-row">
           <label for="lagRange">جبران تأخیر صدا</label>
-          <input type="range" id="lagRange" min="-150" max="350" step="5">
+          <input type="range" id="lagRange" min="-150" max="600" step="5">
           <output id="lagOut">۰</output>
         </div>
-        <p class="note">اگه توپ از صدا جلوتره (معمولاً با هندزفری بلوتوث)، این رو زیاد کن.</p>
+        <p class="note">اگه توپ زودتر از صدای ضرب به خونه می‌رسه (معمولاً با هندزفری بلوتوث یا روی بعضی گوشی‌ها)، زیادش کن — یا بذار خود برنامه اندازه بگیره:</p>
+        <div class="calib">
+          <button type="button" class="btn btn-ghost" id="calibStart">اندازه‌گیری خودکار با ضربه</button>
+          <div class="calib-run" id="calibRun" hidden>
+            <p class="calib-msg" id="calibMsg">گوش بده… از تیک چهارم با هر تیک روی دایره بزن</p>
+            <button type="button" class="calib-pad" id="calibPad" aria-label="با هر تیک اینجا بزن"><span id="calibBeat"></span></button>
+            <div class="calib-dots" id="calibDots" aria-hidden="true"></div>
+          </div>
+        </div>
         <h4>کلمه‌ها</h4>
         <label class="toggle"><input type="checkbox" id="cleanToggle2"><span class="toggle-ui"></span><span>حالت تمیز</span></label>
       </div>

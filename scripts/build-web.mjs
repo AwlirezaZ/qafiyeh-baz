@@ -26,14 +26,7 @@ for (const item of INCLUDE) {
 }
 // the service worker is for the website only; the app is already offline
 
-// Capacitor runtime + plugin bundles for the Android app (loaded by js/native.js only inside the app)
-const vendor = path.join(out, "vendor");
-fs.mkdirSync(vendor, { recursive: true });
-const NM = path.join(root, "node_modules", "@capacitor");
-for (const [from, to] of [["core/dist/capacitor.js", "capacitor.js"], ["app/dist/plugin.js", "app.js"],
-                          ["share/dist/plugin.js", "share.js"], ["filesystem/dist/plugin.js", "filesystem.js"]]) {
-  fs.copyFileSync(path.join(NM, from), path.join(vendor, to)); files++;
-}
+// (js/native.js talks to the native plugins through Capacitor's built-in bridge — no JS bundles to copy)
 
 // The app ships only the beats that are actually in beats/ — drop manifest entries without a file
 const mf = path.join(out, "beats", "manifest.json");

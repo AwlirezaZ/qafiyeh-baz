@@ -840,6 +840,22 @@ input[type="range"] { accent-color: var(--accent); width: 100%; }
   .screen.is-active, .demo-ball, .beat-play.is-playing, .cell.hit, .cell.rhyme.hit { animation: none; }
 }
 
+/* ---------- audio sync calibration ---------- */
+.calib { display: grid; justify-items: start; gap: 12px; margin-top: 4px; }
+.calib-run { display: grid; justify-items: center; gap: 12px; width: 100%; padding: 14px; background: var(--surface-2); border-radius: var(--radius); }
+.calib-msg { margin: 0; text-align: center; font-size: 14px; }
+.calib-pad {
+  width: 128px; height: 128px; border-radius: 50%; padding: 0;
+  background: var(--surface); border: 3px solid var(--accent); color: var(--accent);
+  touch-action: manipulation; user-select: none; -webkit-user-select: none;
+}
+.calib-pad.pulse { animation: calibPulse .18s ease-out; }
+@keyframes calibPulse { 0% { background: var(--accent); transform: scale(.94); } 100% { background: var(--surface); transform: scale(1); } }
+.calib-dots { display: flex; gap: 6px; }
+.calib-dots i { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--line); }
+.calib-dots i.on { background: var(--accent); border-color: var(--accent); }
+.btn.is-busy { opacity: .6; pointer-events: none; }
+
 /* ---------- notches / status bar (installed PWA on iPhone, Android app edge-to-edge) ---------- */
 .topbar { padding-top: max(12px, calc(env(safe-area-inset-top, 0px) + 10px)); }
 .game-top { padding-top: max(10px, calc(env(safe-area-inset-top, 0px) + 8px)); }
