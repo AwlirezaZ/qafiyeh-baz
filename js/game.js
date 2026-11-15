@@ -292,6 +292,8 @@
       opts.switchEvery = cfg.switchEvery || 16;
     } else if (cfg.source.kind === "buffer") {
       opts.buffer = cfg.source.buffer; opts.bpm = cfg.source.bpm; opts.offset = cfg.source.offset; opts.name = cfg.source.name;
+      opts.gain = cfg.source.gain;           // loudness levelling
+      opts.loopBars = cfg.source.loopBars;   // short loops repeat on the bar grid
     } else if (cfg.source.kind === "click") {
       opts.bpm = cfg.source.bpm; opts.audible = cfg.source.audible; opts.t0 = cfg.source.t0;
     }

@@ -229,8 +229,21 @@
   function introBars(b) { var o = beatOpts(b.id); return o.skip != null ? o.skip : (b.intro || 0); }
   /* everything needed to play an MP3 beat with its settings */
   function bufferSource(b, buf) {
+    if (b.loop) {
+      // loops repeat in whole bars; nudge the tempo so N bars fill the file exactly (no drift between repeats)
+      var off = b.offset || 0, len = buf.duration - off;
+      var bars = Math.max(1, Math.round(len * b.bpm / 240));
+      var exact = bars * 240 / len;
+      return { kind: "buffer", buffer: buf, bpm: exact, offset: off, name: b.name, gain: b.level || 1, loopBars: bars };
+    }
     var bar = 240 / b.bpm;
     return { kind: "buffer", buffer: buf, bpm: b.bpm, offset: (b.offset || 0) + introBars(b) * bar, name: b.name, gain: b.level || 1 };
+  }
+  function isRemote(src) { return /^https?:\/\//i.test(src || ""); }
+  /* first load of a beat file can take a while (especially linked ones) — say so instead of looking frozen */
+  function loadingToast(b) {
+    if (decoded[b.id]) return;
+    globalToast(b.remote ? "دارم بیت رو از اینترنت می‌گیرم… (فقط بار اول)" : "دارم بیت رو آماده می‌کنم…", 6000);
   }
   function fmtTime(s) { s = Math.round(s); return fa(Math.floor(s / 60)) + ":" + QB.pad2(s % 60); }
 
@@ -280,7 +293,9 @@
       .then(function (list) {
         if (!Array.isArray(list)) return;
         return Promise.all(list.map(function (e) {
-          if (!e || !e.file) return null;
+          if (!e || (!e.file && !e.src)) return null;
+          // "src" = a beat on another website (that site must allow it — CORS); "file" = a file in beats/
+          if (e.src) return isRemote(e.src) ? { e: e, src: e.src } : null;
           var src = "beats/" + encodeURI(e.file);
           if (QB.native.is) return { e: e, src: src };   // the app's build already dropped entries without files
           return fetch(src, { method: "HEAD" }).then(function (r) { return r.ok ? { e: e, src: src } : null; }).catch(function () { return null; });
@@ -289,10 +304,11 @@
             if (!f) return;
             var e = f.e;
             var credit = [e.artist, e.license].filter(Boolean).join(" · ");
-            var desc = { id: "lib-" + e.file, kind: "file", src: f.src, name: e.name || e.file, family: e.family || null,
+            var key = e.file || e.src.split("/").pop().split("?")[0];
+            var desc = { id: "lib-" + key, kind: "file", src: f.src, name: e.name || key, family: e.family || null,
                          genre: e.genre || "بیت", vibe: e.vibe ? e.vibe + (credit ? " · " + credit : "") : credit,
                          artist: e.artist || "", moods: e.moods || [], added: e.added || null,
-                         bpm: +e.bpm || null, offset: +e.offset || 0 };
+                         bpm: +e.bpm || null, offset: +e.offset || 0, loop: !!e.loop, remote: isRemote(f.src) };
             applyMeta(desc, readMeta(desc));
             library.push(desc);
           });
@@ -396,7 +412,7 @@
     var box = $("#lengthChips"); box.innerHTML = "";
     if (S.mode === "classic") {
       $("#lengthTitle").textContent = "چند بار؟";
-      var sel = findBeat(S.beat), isTrack = sel && sel.kind !== "synth";
+      var sel = findBeat(S.beat), isTrack = sel && sel.kind !== "synth" && !sel.loop;   // loops have no "end"
       if (S.bars === "full" && sel && !isTrack) S.bars = 16;   // (sel unknown = library still loading → keep)
       [8, 16, 32, 64].forEach(function (n) {
         var b = chip(fa(n), n === 8 ? "زیر یه دقیقه" : n === 64 ? "خیلی طولانی" : "بار", S.bars === n, { bars: n });
@@ -431,6 +447,8 @@
     el.setAttribute("aria-pressed", on);
     var moods = (b.moods || []).map(function (m) { return '<span class="mood">' + MOOD_LABEL[m] + "</span>"; }).join("");
     var tempoTag = b.kind === "synth" && (beatOpts(b.id).tempo || 1) !== 1 ? '<span class="tag">' + fa(Math.round((beatOpts(b.id).tempo) * 100)) + "٪</span>" : "";
+    if (b.loop) tempoTag += '<span class="tag">لوپ</span>';
+    if (b.remote) tempoTag += '<span class="tag tag-online" title="از یه سایت دیگه پخش می‌شه — اینترنت لازمه">آنلاین</span>';
     el.innerHTML =
       '<button type="button" class="beat-play" data-preview="' + b.id + '" aria-label="پیش‌نمایش ' + esc(b.name) + '"><svg><use href="#i-play"/></svg></button>' +
       '<div class="beat-info">' +
@@ -643,6 +661,7 @@
       preview = new QB.Transport();
       preview.start({ kind: "synth", beats: [synthFor(id)], preview: true, intro: false, volume: 0.8 });
     } else {
+      loadingToast(b);
       loadBuffer(b).then(function (buf) {
         if (previewId !== id) return;
         preview = new QB.Transport();
@@ -831,6 +850,7 @@
       return go({ kind: "synth", beats: beats });
     }
     $("#startBtn").disabled = true;
+    loadingToast(b);
     loadBuffer(b).then(function (buf) {
       $("#startBtn").disabled = false;
       var src = bufferSource(b, buf);

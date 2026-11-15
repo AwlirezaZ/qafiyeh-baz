@@ -4,7 +4,7 @@
  * - Fonts, icons, beat MP3s: cache first → fast, and offline after the first play.
  * Bump VERSION to drop old caches.
  */
-const VERSION = "v4";
+const VERSION = "v5";
 const SHELL = `qb-shell-${VERSION}`;
 const MEDIA = `qb-media-${VERSION}`;
 
@@ -34,9 +34,12 @@ self.addEventListener("fetch", (e) => {
   const req = e.request;
   if (req.method !== "GET") return;
   const url = new URL(req.url);
-  if (url.origin !== location.origin) return;
+  // beats linked from other sites (manifest "src") are cached after the first play, like local beats
+  const LINKED_BEAT_HOSTS = ["cdn.freesound.org", "upload.wikimedia.org"];
+  const linkedBeat = LINKED_BEAT_HOSTS.indexOf(url.hostname) >= 0 && /\.(mp3|ogg|wav)$/i.test(url.pathname);
+  if (url.origin !== location.origin && !linkedBeat) return;
 
-  const isMedia = /\.(woff2|png|mp3|wav|m4a|ogg)$/i.test(url.pathname);
+  const isMedia = linkedBeat || /\.(woff2|png|mp3|wav|m4a|ogg)$/i.test(url.pathname);
   if (isMedia && !req.headers.has("range")) {
     e.respondWith(
       caches.open(MEDIA).then((c) => c.match(req).then((hit) => hit || fetch(req).then((res) => {

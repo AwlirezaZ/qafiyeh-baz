@@ -32,8 +32,9 @@ for (const item of INCLUDE) {
 const mf = path.join(out, "beats", "manifest.json");
 if (fs.existsSync(mf)) {
   const list = JSON.parse(fs.readFileSync(mf, "utf8"));
-  const kept = list.filter((e) => e && e.file && fs.existsSync(path.join(out, "beats", e.file)));
+  const kept = list.filter((e) => e && ((e.src && /^https?:\/\//.test(e.src)) ||          // linked from another site
+                                        (e.file && fs.existsSync(path.join(out, "beats", e.file)))));
   fs.writeFileSync(mf, JSON.stringify(kept, null, 1));
-  console.log(`beats: ${kept.length} of ${list.length} manifest entries have audio files`);
+  console.log(`beats: ${kept.length} of ${list.length} manifest entries kept (local file present, or linked by URL)`);
 }
 console.log(`www/ ready: ${files} files, ${(bytes / 1048576).toFixed(1)} MB`);

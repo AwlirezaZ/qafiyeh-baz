@@ -1025,12 +1025,20 @@
       var src = ctx.createBufferSource(); src.buffer = opts.buffer;
       var g = this.kit.gain(this.kit.out); g.gain.value = opts.gain || 1;
       src.connect(g);
-      src.start(t0, Math.max(0, opts.offset || 0));
+      var off = Math.max(0, opts.offset || 0), barDur = 240 / opts.bpm;
+      if (opts.loopBars) {
+        // short loops repeat exactly on the bar grid (loop points in whole bars, not the file's raw length)
+        src.loop = true;
+        src.loopStart = off;
+        src.loopEnd = off + opts.loopBars * barDur;
+      }
+      src.start(t0, off);
       this.kit.sources.push(src);
       this.bufferSrc = src;
-      var barDur = 240 / opts.bpm;
-      var maxBars = Math.floor((opts.buffer.duration - (opts.offset || 0)) / barDur);
-      if (this.endBar == null || this.endBar > maxBars) this.endBar = maxBars;
+      if (!opts.loopBars) {
+        var maxBars = Math.floor((opts.buffer.duration - off) / barDur);
+        if (this.endBar == null || this.endBar > maxBars) this.endBar = maxBars;
+      }
       this.beat = { id: "upload", name: opts.name, bpm: opts.bpm, swing: 0, drums: function () {}, music: function () {} };
       this.segments.push({ t0: t0, bar0: 0, bpm: opts.bpm, beat: this.beat });
       var self = this;

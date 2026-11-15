@@ -119,6 +119,18 @@ called once per 16th note. `family` is one of `oldschool | boombap | beatbox | t
 Instruments available on `kit`: kick, snare, clap, hat, rim, crash, sub (808 w/ glide), bass, piano, ep, pad,
 bell, santur, zang, dum, tak, brass, scratch, cowbell, lead, saw, organ, vinyl, and a beatbox kit: bbKick, bbSnare, bbInward, bbHat, bbClick, bbBass.
 
+**Linking a beat from another website** (no download): use `"src"` with the full file URL instead of `"file"`:
+```json
+{"src":"https://cdn.freesound.org/previews/203/203532_1126957-hq.mp3","name":"Matt's Beatbox Loop","artist":"Mattc90","family":"beatbox","genre":"بیت‌باکس واقعی","bpm":100,"loop":true,"license":"CC0","url":"https://freesound.org/people/Mattc90/sounds/203532/"}
+```
+- Only works if that site allows other sites to load its audio (CORS). Freesound previews (`cdn.freesound.org`) and
+  Wikimedia (`upload.wikimedia.org`) do; incompetech.com does not. Check with:
+  `curl -sI -H "Origin: https://awlirezaz.github.io" <url> | grep -i access-control-allow-origin`
+- Linked beats need internet (also in the Android app); the website caches them after the first play.
+- `"loop": true` for short loops: the game repeats the file in whole bars, so a 10-second loop can last a whole round.
+  Give `"bpm"` for loops (the tempo is fine-tuned so the bars fit the file exactly).
+- Add new hosts to `LINKED_BEAT_HOSTS` in `sw.js` if you want them cached for offline use.
+
 Shared-library MP3s can join a genre filter by adding `"family": "boombap"` (etc.) to their manifest entry.
 
 ## User uploads vs. an admin library
