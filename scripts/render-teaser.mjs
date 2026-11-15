@@ -12,6 +12,9 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 //   --sheet <file.png>  also saves a contact sheet of 6 frames decoded back from the finished MP4 (to check it)
 const args = process.argv.slice(2), si = args.indexOf("--sheet");
 const sheetFile = si >= 0 ? args.splice(si, 2)[1] : null;
+//   --times 1.9,4.8,…   which 6 moments (seconds) go on the contact sheet
+const ti = args.indexOf("--times");
+const sheetTimes = ti >= 0 ? args.splice(ti, 2)[1].split(",").map(Number) : [1.9, 4.8, 9.2, 14.0, 17.4, 20.0];
 const outFile = args[0] || path.join(root, "promo", "qafiyeh-baz-teaser.mp4");
 const CHROME = [
   process.env.CHROME,
@@ -93,7 +96,7 @@ try {
       const input = new MB.Input({ formats: MB.ALL_FORMATS, source: new MB.BlobSource(new Blob([bytes])) });
       const track = await input.getPrimaryVideoTrack();
       const sink = new MB.CanvasSink(track, { width: 270, height: 480, fit: "fill" });
-      const times = [1.9, 4.8, 9.2, 14.0, 17.4, 20.0], sheet = document.createElement("canvas");
+      const times = ${JSON.stringify(sheetTimes)}, sheet = document.createElement("canvas");
       sheet.width = 810; sheet.height = 960;
       const c = sheet.getContext("2d");
       for (let i = 0; i < times.length; i++) {

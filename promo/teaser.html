@@ -25,6 +25,7 @@
   var W = 1080, H = 1920;
   var BEAT_URL = "https://cdn.freesound.org/previews/149/149015_2675426-hq.mp3";
   var BPM_HINT = 95, BARS = 8;
+  var START_BAR = 4;   // bars 0–3 of the loop include a drum break (bar 3) — start where the drums run straight
   var C = { bg: "#0f0f0e", surface: "#181816", line: "#37352f", text: "#efe9dc", muted: "#8f8a7d",
             accent: "#ff5b1f", ink: "#0f0f0e", r: ["#ff5b1f", "#ffd23f", "#efe9dc", "#ff5c93"] };
   var DISPLAY = "Lalezar, Vazirmatn, sans-serif", BODY = "Vazirmatn, sans-serif";
@@ -86,6 +87,42 @@
 
   /* bars 2–4: the actual game grid, ball and rhymes */
   var WORDS = [["بهار", 0], ["قرار", 0], ["خیابون", 1], ["بارون", 1], ["رفیق", 3], ["عمیق", 3], ["فرار", 0]];
+
+  /* A sample freestyle over those bars, shown karaoke-style. Natural, with the slips real freestyles have:
+     a filler, a self-correction and a stumble. Each token: [text, beat within the bar (0–3.x), kind]
+     kind: "" normal · "f" filler/slip (dimmed) · "r" the rhyme word (lands on beat 4, in the slot's colour) */
+  var LYRICS = [
+    [["اِ…", 0, "f"], ["یو،", 0.4, "f"], ["هر", 0.9, ""], ["زمستون", 1.15, ""], ["دلم", 1.7, ""], ["لک", 2.1, ""], ["زده", 2.35, ""], ["واسه", 2.7, ""], ["بهار", 3, "r"]],
+    [["با", 0, ""], ["رفیقا", 0.25, ""], ["سرِ", 0.75, ""], ["کوچه…", 1, ""], ["نه", 1.5, "f"], ["نه،", 1.7, "f"], ["سرِ", 2.1, ""], ["پارک", 2.35, ""], ["—", 2.7, ""], ["قرار", 3, "r"]],
+    [["هه…", 0, "f"], ["ما", 0.5, ""], ["بزرگ‌شده‌ی", 0.75, ""], ["همین…", 1.6, "f"], ["همین", 2.2, ""], ["خیابون", 3, "r"]]
+  ];
+  function lyricLine(gb) {
+    var line = Math.floor(gb / 4); if (line < 0 || line >= LYRICS.length) return;
+    var inBar = gb - line * 4;
+    var y = 1640;
+    g.save();
+    text("نمونه‌ی فری‌استایل", W / 2, y - 120, 36, C.muted, BODY);
+    // lay out the WHOLE line first (each word in its own font), shrink it to fit, then reveal words on their beats
+    var all = LYRICS[line], k = 1;
+    function fontOf(t, scale) { return t[2] === "r" ? (92 * scale) + "px " + DISPLAY : "700 " + (64 * scale) + "px " + BODY; }
+    function widthOf(t, scale) { g.font = fontOf(t, scale); return g.measureText(t[0]).width; }
+    var full = all.reduce(function (a, t) { return a + widthOf(t, 1); }, 0) + 18 * (all.length - 1);
+    if (full > W - 120) k = (W - 120) / full;
+    var sp = 18 * k, x = W / 2 + Math.min(full * k, W - 120) / 2;
+    all.forEach(function (t) {
+      var w = widthOf(t, k);
+      if (inBar >= t[1]) {
+        var age = inBar - t[1], p = clamp(age / 0.15), s = 1 + (1 - outBack(p)) * 0.25;
+        var col = t[2] === "f" ? C.muted : t[2] === "r" ? C.r[WORDS[line][1]] : C.text;
+        g.save(); g.translate(x - w / 2, y); g.scale(s, s); g.globalAlpha = clamp(age / 0.08);
+        g.font = fontOf(t, k); g.fillStyle = col; g.textAlign = "center"; g.direction = "rtl"; g.textBaseline = "middle";
+        g.fillText(t[0], 0, 0);
+        g.restore();
+      }
+      x -= w + sp;
+    });
+    g.restore();
+  }
   function sceneGame(beat) {
     var gb = beat - 8;                           // grid beats since gameplay started
     var a = clamp((beat - 8) / 0.5);
@@ -125,11 +162,12 @@
     g.beginPath(); g.arc(bx, by, 30, 0, Math.PI * 2); g.fillStyle = C.text; g.fill();
     g.lineWidth = 7; g.strokeStyle = C.bg; g.stroke();
     g.restore(); g.restore();
+    lyricLine(gb);
   }
 
   function sceneFeatures(beat) {   // bar 5: one card per beat
     var b = beat - 20;
-    var items = [["۱۸", "بیت اورجینال"], ["بیت‌باکس", "و اولد اسکول"], ["چالش", "هر روز یه چالش تازه"], ["ضبط", "ویدیو برای استوری"]];
+    var items = [["۱۸", "بیت اورجینال"], ["بیت‌باکس", "و اولد اسکول"], ["مهمونی", "نوبتی بخونین"], ["ضبط", "ویدیو برای استوری"]];
     for (var i = 0; i < 4; i++) {
       if (b < i) continue;
       var p = pop(b, i, 0.4), y = 430 + i * 330, rot = (i % 2 ? 1 : -1) * 0.025;
@@ -148,6 +186,7 @@
     g.save(); g.translate(W / 2 + shake, 640 + shake); g.scale(slam.s, slam.s); g.globalAlpha = slam.a;
     inkText("قافیه‌باز", 0, 0, 300); g.restore();
     if (b >= 1.5) { var t = pop(b, 1.5, 0.5); g.save(); g.globalAlpha = t.a; text("بازی تمرین فری‌استایل رپ", W / 2, 880, 64, C.muted, BODY); g.restore(); }
+    if (b >= 2.5) { var t2 = pop(b, 2.5, 0.5); g.save(); g.globalAlpha = t2.a; text("واسه تمرین، دورهمی و مهمونی", W / 2, 965, 56, C.text, BODY); g.restore(); }
     if (b >= 4) {   // bar 7
       var c = pop(b, 4, 0.45);
       g.save(); g.translate(W / 2, 1130); g.scale(c.s, c.s); g.globalAlpha = c.a;
@@ -199,7 +238,7 @@
     gain.gain.setValueAtTime(1, t0 + total - 0.6);
     gain.gain.linearRampToValueAtTime(0, t0 + total);
     src.connect(gain); gain.connect(ctx.destination); if (dest) gain.connect(dest);
-    src.start(t0, 0); src.stop(t0 + total + 0.1);
+    src.start(t0, START_BAR * 240 / bpm); src.stop(t0 + total + 0.1);
     return new Promise(function (done) {
       (function loop() {
         var t = ctx.currentTime - t0;
@@ -230,7 +269,7 @@
     var fade = oc.createGain();
     fade.gain.setValueAtTime(0.86, 0);   // ~1 dB headroom: the loop's peaks go slightly over full scale
     fade.gain.setValueAtTime(0.86, total - 0.6); fade.gain.linearRampToValueAtTime(0, total);
-    s.connect(fade); fade.connect(oc.destination); s.start(0, 0);
+    s.connect(fade); fade.connect(oc.destination); s.start(0, START_BAR * 240 / bpm);
     var audio = await oc.startRendering();
 
     var target = new MB.BufferTarget();

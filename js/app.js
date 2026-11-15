@@ -230,10 +230,13 @@
   /* everything needed to play an MP3 beat with its settings */
   function bufferSource(b, buf) {
     if (b.loop) {
-      // loops repeat in whole bars; nudge the tempo so N bars fill the file exactly (no drift between repeats)
-      var off = b.offset || 0, len = buf.duration - off;
-      var bars = Math.max(1, Math.round(len * b.bpm / 240));
-      var exact = bars * 240 / len;
+      // loops repeat in whole bars; nudge the tempo so whole bars fill the file exactly (no drift between repeats).
+      // "loopStartBar"/"loopBars" in the manifest pick just a section (e.g. skip a drum break or a silent tail).
+      var totalBars = Math.max(1, Math.round(buf.duration * b.bpm / 240));
+      var exact = totalBars * 240 / buf.duration, barLen = 240 / exact;
+      var startBar = b.loopStartBar || 0;
+      var off = b.loopStartBar != null ? startBar * barLen : (b.offset || 0);
+      var bars = b.loopBars || Math.max(1, Math.round((buf.duration - off) / barLen));
       return { kind: "buffer", buffer: buf, bpm: exact, offset: off, name: b.name, gain: b.level || 1, loopBars: bars };
     }
     var bar = 240 / b.bpm;
@@ -308,7 +311,8 @@
             var desc = { id: "lib-" + key, kind: "file", src: f.src, name: e.name || key, family: e.family || null,
                          genre: e.genre || "بیت", vibe: e.vibe ? e.vibe + (credit ? " · " + credit : "") : credit,
                          artist: e.artist || "", moods: e.moods || [], added: e.added || null,
-                         bpm: +e.bpm || null, offset: +e.offset || 0, loop: !!e.loop, remote: isRemote(f.src) };
+                         bpm: +e.bpm || null, offset: +e.offset || 0, loop: !!e.loop, remote: isRemote(f.src),
+                         loopStartBar: e.loopStartBar != null ? +e.loopStartBar : null, loopBars: +e.loopBars || null };
             applyMeta(desc, readMeta(desc));
             library.push(desc);
           });
