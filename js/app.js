@@ -9,7 +9,7 @@
   /* ---------- persisted state ---------- */
   var DEFAULTS = {
     mode: "classic", level: "beginner", fill: "all", scheme: "aabb", speed: 1,
-    list: "all", clean: false, beat: "golden", beatFilter: "all", bars: 16, switchEvery: 16,
+    list: "all", clean: false, beat: "bounce", beatFilter: "all", bars: 16, switchEvery: 16,
     tapBpm: 90, click: false, theme: "poster", lag: 0, rec: false, cam: true,
     beatMood: "all", beatTempo: "all", beatSort: "suggested", onlyFavs: false, favs: [], beatOpts: {}, autoHalf: true,
     pattern: "AAAA", hold: 4
@@ -101,7 +101,7 @@
   function dailyInfo() {
     var d = new Date(), key = Stats.dayKey(d), seed = +key.replace(/-/g, "");
     var rng = QB.seededRandom(seed * 7 + 13);
-    var pool = QB.BEATS.filter(function (b) { return b.family === "boombap" || b.family === "trap"; });
+    var pool = QB.BEATS.filter(function (b) { return ["oldschool", "boombap", "beatbox", "trap"].indexOf(b.family) >= 0; });
     var pick = function (arr) { return arr[Math.floor(rng() * arr.length)]; };
     var beat = pick(pool);
     var scheme = pick(["aabb", "abab", "aabb", "aaaa"]);

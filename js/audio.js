@@ -383,6 +383,91 @@
     this.send(g, 0.3);
   };
 
+  /* ---------- beatbox kit: sounds a human makes with lips, tongue and throat ---------- */
+  /* "b" lip kick: a tight plosive pop + short chest thump (shorter and drier than a drum kick) */
+  Kit.prototype.bbKick = function (t, v) {
+    v = v == null ? 1 : v;
+    var o = this.osc("sine", 105, t); o.frequency.exponentialRampToValueAtTime(52, t + 0.07);
+    var g = this.gain(this.drums); perc(g, t, 1.0 * v, 0.17, 0.004);
+    o.connect(g); o.start(t); o.stop(t + 0.2);
+    var n = this.noise(t, 0.04), lp = this.filt("lowpass", 900, 0.8), ng = this.gain(this.drums);   // the lip "puh"
+    perc(ng, t, 0.55 * v, 0.035, 0.002); n.connect(lp); lp.connect(ng);
+  };
+  /* "pf" snare: a burst of air through the lips */
+  Kit.prototype.bbSnare = function (t, v) {
+    v = v == null ? 1 : v;
+    var n = this.noise(t, 0.2), bp = this.filt("bandpass", 2300, 0.9), hp = this.filt("highpass", 900), g = this.gain(this.drums);
+    g.gain.setValueAtTime(EPS, t);
+    g.gain.exponentialRampToValueAtTime(0.85 * v, t + 0.006);
+    g.gain.exponentialRampToValueAtTime(0.25 * v, t + 0.04);
+    g.gain.exponentialRampToValueAtTime(EPS, t + 0.16);
+    n.connect(hp); hp.connect(bp); bp.connect(g); this.send(g, 0.12);
+    var o = this.osc("triangle", 330, t), og = this.gain(this.drums);   // the "p" of "pf"
+    perc(og, t, 0.25 * v, 0.03, 0.001); o.connect(og); o.start(t); o.stop(t + 0.05);
+  };
+  /* inward "kh" snare: sucked in, so it swells instead of snapping */
+  Kit.prototype.bbInward = function (t, v) {
+    v = v == null ? 1 : v;
+    var n = this.noise(t, 0.2), bp = this.filt("bandpass", 3200, 1.6), g = this.gain(this.drums);
+    g.gain.setValueAtTime(EPS, t);
+    g.gain.exponentialRampToValueAtTime(0.7 * v, t + 0.025);
+    g.gain.exponentialRampToValueAtTime(EPS, t + 0.13);
+    n.connect(bp); bp.connect(g);
+  };
+  /* "ts" hi-hat (open = "tsss") */
+  Kit.prototype.bbHat = function (t, v, open) {
+    v = v == null ? 1 : v;
+    var dec = open ? 0.22 : 0.05;
+    var n = this.noise(t, dec), hp = this.filt("highpass", 5200), pk = this.filt("peaking", 7500, 1.2), g = this.gain(this.drums);
+    pk.gain.value = 6;
+    g.gain.setValueAtTime(EPS, t);
+    g.gain.exponentialRampToValueAtTime(0.32 * v, t + 0.004);
+    g.gain.exponentialRampToValueAtTime(EPS, t + dec);
+    n.connect(hp); hp.connect(pk); pk.connect(g);
+  };
+  /* tongue click "k" */
+  Kit.prototype.bbClick = function (t, v) {
+    v = v == null ? 1 : v;
+    var o = this.osc("sine", 1900, t); o.frequency.exponentialRampToValueAtTime(900, t + 0.015);
+    var g = this.gain(this.drums); perc(g, t, 0.4 * v, 0.025, 0.001); o.connect(g); o.start(t); o.stop(t + 0.04);
+  };
+  /* hummed lip bass: a buzzy hum with a throat-like formant and a little wobble */
+  Kit.prototype.bbBass = function (t, note, dur, v) {
+    v = v == null ? 1 : v;
+    var f = mtof(note), o = this.osc("sawtooth", f, t), o2 = this.osc("sine", f, t);
+    var vib = this.ctx.createOscillator(); vib.frequency.value = 5; var vg = this.ctx.createGain(); vg.gain.value = 12;
+    vib.connect(vg); vg.connect(o.detune); vg.connect(o2.detune);
+    var lp = this.filt("lowpass", 520, 1.5), form = this.filt("peaking", 280, 2), g = this.gain(this.music);
+    form.gain.value = 5;
+    var sg = this.ctx.createGain(); sg.gain.value = 0.35;
+    o.connect(sg); sg.connect(lp); o2.connect(lp); lp.connect(form); form.connect(g);
+    g.gain.setValueAtTime(EPS, t);
+    g.gain.exponentialRampToValueAtTime(0.7 * v, t + 0.03);
+    g.gain.setValueAtTime(0.6 * v, t + dur);
+    g.gain.exponentialRampToValueAtTime(EPS, t + dur + 0.06);
+    [o, o2, vib].forEach(function (x) { x.start(t); x.stop(t + dur + 0.1); });
+  };
+  /* drawbar organ stab with a little rotary-speaker shimmer (funk / breakbeat) */
+  Kit.prototype.organ = function (t, notes, dur, v) {
+    v = v == null ? 1 : v;
+    var self = this, per = v / Math.sqrt(notes.length), g = this.gain(this.music);
+    var trem = this.ctx.createOscillator(); trem.frequency.value = 6.2; var tg = this.ctx.createGain(); tg.gain.value = 0.06;
+    trem.connect(tg); tg.connect(g.gain);
+    notes.forEach(function (n) {
+      var f = mtof(n);
+      [[1, 0.5], [2, 0.35], [3, 0.22], [4, 0.12]].forEach(function (h) {
+        var o = self.osc("sine", f * h[0], t), hg = self.ctx.createGain(); hg.gain.value = h[1] * per * 0.35;
+        o.connect(hg); hg.connect(g); o.start(t); o.stop(t + dur + 0.08);
+      });
+    });
+    g.gain.setValueAtTime(EPS, t);
+    g.gain.exponentialRampToValueAtTime(1, t + 0.008);
+    g.gain.setValueAtTime(1, t + dur);
+    g.gain.exponentialRampToValueAtTime(EPS, t + dur + 0.06);
+    trem.start(t); trem.stop(t + dur + 0.1);
+    this.send(g, 0.18);
+  };
+
   Kit.prototype.dispose = function (fade) {
     var ctx = this.ctx, now = ctx.currentTime, out = this.out, self = this;
     out.gain.cancelScheduledValues(now);
@@ -675,7 +760,7 @@
     var ch = [[55, 58, 62, 65], [51, 55, 58, 62]];
     var mel = [[2, 0, 79, 6, 74], [2, 8, 77, 4], [2, 12, 74, 4], [3, 0, 74, 8, 77], [3, 10, 70, 6]];
     BEATS.push({
-      id: "gfunk", family: "other", name: "ساحل", genre: "جی‌فانک", vibe: "وست‌کوست، سوت سینتی، باس فانکی", bpm: 96, swing: 0.08,
+      id: "gfunk", family: "oldschool", name: "ساحل", genre: "جی‌فانک", vibe: "وست‌کوست، سوت سینتی، باس فانکی", bpm: 96, swing: 0.08,
       drums: function (k, bar, s, t, sd) {
         if (at(kick, bar, s) === "x") k.kick(t, 0.95, { f0: 130, dec: 0.4 });
         if (s === 4 || s === 12) { k.clap(t, 0.9); k.snare(t, 0.5, { hp: 2000 }); }
@@ -696,7 +781,7 @@
     var bass = [[0, 0, 40], [0, 3, 40], [0, 6, 43], [0, 8, 40], [0, 11, 45], [0, 14, 43],
                 [1, 0, 40], [1, 3, 40], [1, 6, 47], [1, 8, 45], [1, 10, 43], [1, 12, 42], [1, 14, 43]];
     BEATS.push({
-      id: "oldschool", family: "other", name: "اولد اسکول", genre: "الکترو هیپ‌هاپ", vibe: "کاوبل ۸۰۸، تند، حال‌وهوای دهه‌ی هشتاد", bpm: 104, swing: 0.04,
+      id: "oldschool", family: "oldschool", name: "اولد اسکول", genre: "الکترو هیپ‌هاپ", vibe: "کاوبل ۸۰۸، تند، حال‌وهوای دهه‌ی هشتاد", bpm: 104, swing: 0.04,
       drums: function (k, bar, s, t, sd) {
         if (at(kick, bar, s) === "x") k.kick(t, 1, { f0: 120, f1: 45, dec: 0.5 });
         if (s === 4 || s === 12) k.clap(t, 1);
@@ -711,14 +796,124 @@
     });
   })();
 
-  /* list order: boom bap first, then trap/drill, Persian, everything else */
-  var FAM = { boombap: 0, trap: 1, persian: 2, other: 3 };
+  /* 14 — Bounce: the classic head-nod groove. Kick on the "and"s, hard 2 & 4, offbeat piano stabs */
+  (function () {
+    var kick = P("x......x..x..... x.x....x..x..x..");
+    var snr  = P("....x.......x... ....x.......x..g");
+    var hat  = P("x.xgx.xgx.xgx.xg x.xgx.xgx.xgx.o.");
+    var ch = [[52, 55, 59, 62], [52, 55, 59, 62], [55, 59, 62, 66], [50, 54, 57, 62]];
+    var roots = [40, 40, 43, 38];
+    BEATS.push({
+      id: "bounce", family: "oldschool", name: "بانس", genre: "بوم‌بپ بانسی", vibe: "سر تکون‌دادنی، کیک بالاپایین، پیانوی ضربه‌ای", bpm: 95, swing: 0.16, vinyl: true,
+      drums: function (k, bar, s, t, sd) {
+        if (at(kick, bar, s) === "x") { k.kick(t, 1.05, { f0: 155, dec: 0.36 }); k.bass(t, roots[bar % 4], sd * 1.6, 0.95); }
+        var c = at(snr, bar, s);
+        if (c === "x") { k.snare(t, 1.05, { hp: 1500, dec: 0.17 }); k.clap(t, 0.45); }
+        else if (c === "g") k.snare(t, 0.25, { verb: 0 });
+        hatChar(k, at(hat, bar, s), t, sd, s % 4 === 0 ? 0.85 : 0.55);
+        if (s === 14) k.bass(t, roots[bar % 4] + 12, sd * 0.8, 0.6);   // octave pop that makes it bounce
+      },
+      music: function (k, bar, s, t, sd) {
+        if (s === 3 || s === 11) k.keys("piano", t, ch[bar % 4], sd * 1.1, 0.6);
+        if (s === 0 && bar % 4 === 3) k.brass(t, ch[3], sd * 2, 0.45);
+      }
+    });
+  })();
+
+  /* 15 — Breakbeat: funky-drummer-style ghost notes, organ stabs, funky bass */
+  (function () {
+    var kick = P("x.x.......x..x.. x.x...x...x.....");
+    var snr  = P("....x..g.g..x..g ....x..g.g..x.g.");
+    var hat  = P("xgxgxgxgxgxgxgxg xgxgxgxgxgxgxgog");
+    var org = [[0, 0, [52, 56, 59, 62], 2], [0, 6, [52, 56, 59, 62], 1], [0, 10, [52, 56, 59, 62], 2],
+               [1, 3, [57, 61, 64, 67], 1], [1, 6, [57, 61, 64, 67], 2], [1, 14, [57, 61, 64, 67], 1]];
+    var bass = [[0, 0, 40], [0, 3, 40], [0, 6, 52], [0, 8, 43], [0, 10, 45], [0, 13, 47],
+                [1, 0, 45], [1, 3, 45], [1, 6, 57], [1, 8, 47], [1, 10, 43], [1, 14, 40]];
+    BEATS.push({
+      id: "breaks", family: "oldschool", name: "بریک", genre: "بریک‌بیت فانکی", vibe: "درام فانک با نت‌های شبح، ارگ، باس فانکی", bpm: 100, swing: 0.08, vinyl: true,
+      drums: function (k, bar, s, t, sd) {
+        if (at(kick, bar, s) === "x") k.kick(t, 1, { f0: 140, dec: 0.32 });
+        var c = at(snr, bar, s);
+        if (c === "x") k.snare(t, 1.05, { hp: 1300, dec: 0.18 });
+        else if (c === "g") k.snare(t, 0.28, { verb: 0, dec: 0.08 });
+        hatChar(k, at(hat, bar, s), t, sd, s % 2 === 0 ? 0.7 : 0.35);
+      },
+      music: function (k, bar, s, t, sd) {
+        evAt(org, 2, bar, s).forEach(function (e) { k.organ(t, e[2], sd * e[3], 0.8); });
+        evAt(bass, 2, bar, s).forEach(function (e) { k.bass(t, e[2], sd * 1.3, 1); });
+      }
+    });
+  })();
+
+  /* 16 — New jack swing: heavy swing, gated snare + clap, synth stabs */
+  (function () {
+    var kick = P("x.....x...x.x... x.....x.x.......");
+    var hat  = P("xgxgxgxgxgxgxgxg xgxgxgxgxgxgxgxx");
+    var st = [[0, 0, [55, 58, 62, 65], 1], [0, 3, [55, 58, 62, 65], 1], [0, 6, [55, 58, 62, 65], 1], [0, 10, [55, 58, 62, 65], 2],
+              [1, 0, [55, 60, 63, 67], 1], [1, 3, [55, 60, 63, 67], 1], [1, 6, [55, 60, 63, 67], 1], [1, 10, [55, 60, 63, 67], 1], [1, 13, [57, 60, 65, 69], 2]];
+    var roots = [43, 48];
+    BEATS.push({
+      id: "newjack", family: "oldschool", name: "نیوجک", genre: "نیو جک سوئینگ", vibe: "سوئینگ سنگین، کلپ، استب سینتی — حال‌وهوای اواخر هشتاد", bpm: 104, swing: 0.22,
+      drums: function (k, bar, s, t, sd) {
+        if (at(kick, bar, s) === "x") { k.kick(t, 1, { f0: 130, f1: 44, dec: 0.4 }); k.bass(t, roots[bar % 2], sd * 1.4, 0.9); }
+        if (s === 4 || s === 12) { k.snare(t, 0.9, { hp: 1800, dec: 0.1, verb: 0.4 }); k.clap(t, 0.85); }
+        hatChar(k, at(hat, bar, s), t, sd, 0.5);
+      },
+      music: function (k, bar, s, t, sd) {
+        evAt(st, 2, bar, s).forEach(function (e) { k.saw(t, e[2], sd * e[3], 0.65); });
+      }
+    });
+  })();
+
+  /* 17 — Beatbox: a human beat, made only with mouth sounds + hummed lip bass */
+  (function () {
+    var kick = P("x......x..x..... x.x....x..x.....");
+    var snr  = P("....x.......x... ....x.......x..i");
+    var hat  = P("x.x.x.x.x.x.x.o. x.x.x.x.x.x.x.x.");
+    var clk  = P("..........k..... ...k.......k....");
+    var hum = [[0, 0, 45, 6], [0, 10, 45, 4], [1, 0, 45, 6], [1, 10, 48, 4], [2, 0, 43, 6], [2, 10, 43, 4], [3, 0, 40, 6], [3, 10, 43, 4]];
+    BEATS.push({
+      id: "beatbox", family: "beatbox", name: "بیت‌باکس", genre: "بیت‌باکس", vibe: "فقط صدای دهن: بوم، پِف، تس، و باس هومی", bpm: 92, swing: 0.12,
+      drums: function (k, bar, s, t, sd) {
+        if (at(kick, bar, s) === "x") k.bbKick(t, 1);
+        var c = at(snr, bar, s); if (c === "x") k.bbSnare(t, 1); else if (c === "i") k.bbInward(t, 0.8);
+        var h = at(hat, bar, s); if (h === "x") k.bbHat(t, s % 4 === 0 ? 0.9 : 0.6); else if (h === "o") k.bbHat(t, 0.7, true);
+        if (at(clk, bar, s) === "k") k.bbClick(t, 0.8);
+      },
+      music: function (k, bar, s, t, sd) {
+        evAt(hum, 4, bar, s).forEach(function (e) { k.bbBass(t, e[2], sd * e[3], 0.8); });
+      }
+    });
+  })();
+
+  /* 18 — Fast beatbox: busier kicks, 16th "ts" hats, inward snares in the fills */
+  (function () {
+    var kick = P("x.....x..x.x.... x..x..x...x..x.x");
+    var snr  = P("....x.......x... ....x..i....x...");
+    var hum = [[0, 0, 40, 3], [0, 6, 40, 2], [0, 9, 43, 2], [0, 11, 45, 3], [1, 0, 40, 3], [1, 3, 40, 2], [1, 6, 47, 3], [1, 10, 45, 2], [1, 13, 43, 3]];
+    BEATS.push({
+      id: "boxfast", family: "beatbox", name: "باکس تند", genre: "بیت‌باکس تند", vibe: "بیت‌باکس پرانرژی با های‌هت تند و اسنیر نفسی", bpm: 100, swing: 0.06,
+      drums: function (k, bar, s, t, sd) {
+        if (at(kick, bar, s) === "x") k.bbKick(t, 1);
+        var c = at(snr, bar, s); if (c === "x") k.bbSnare(t, 1.05); else if (c === "i") k.bbInward(t, 0.75);
+        k.bbHat(t, s % 4 === 0 ? 0.8 : s % 2 === 0 ? 0.5 : 0.3, s === 14 && bar % 2 === 1);
+        if (s === 7 && bar % 2 === 0) k.bbClick(t, 0.7);
+      },
+      music: function (k, bar, s, t, sd) {
+        evAt(hum, 2, bar, s).forEach(function (e) { k.bbBass(t, e[2], sd * e[3], 0.85); });
+      }
+    });
+  })();
+
+  /* list order: old school first, then boom bap, beatbox, trap/drill, Persian, everything else */
+  var FAM = { oldschool: 0, boombap: 1, beatbox: 2, trap: 3, persian: 4, other: 5 };
   BEATS.sort(function (a, b) { return FAM[a.family] - FAM[b.family]; });
-  QB.BEAT_FAMILIES = [["all", "همه"], ["boombap", "بوم‌بپ"], ["trap", "ترپ و دریل"], ["persian", "ایرانی"], ["other", "بقیه"]];
+  QB.BEAT_FAMILIES = [["all", "همه"], ["oldschool", "اولد اسکول"], ["boombap", "بوم‌بپ"], ["beatbox", "بیت‌باکس"],
+                      ["trap", "ترپ و دریل"], ["persian", "ایرانی"], ["other", "بقیه"]];
   QB.MOODS = [["dark", "تاریک"], ["heavy", "سنگین"], ["energetic", "پرانرژی"], ["chill", "آروم"], ["nostalgic", "نوستالژی"], ["happy", "شاد"]];
 
   /* moods, loudness trim (measured after the master chain, target ≈ −10 dB RMS) and date added */
-  var NEW = "2026-11-14";
+  var NEW = "2026-11-14", NEW2 = "2026-11-15";
   var META = {
     boombap:   { moods: ["nostalgic", "chill"],     level: 1.24 },
     golden:    { moods: ["nostalgic", "energetic"], level: 1.30, added: NEW },
@@ -732,9 +927,16 @@
     zurkhaneh: { moods: ["heavy", "energetic"],     level: 1.60 },
     lofi:      { moods: ["chill"],                  level: 1.45 },
     gfunk:     { moods: ["happy", "chill"],         level: 0.95, added: NEW },
-    oldschool: { moods: ["happy", "energetic"],     level: 1.00, added: NEW }
+    oldschool: { moods: ["happy", "energetic"],     level: 1.00, added: NEW },
+    bounce:    { moods: ["energetic", "nostalgic"], level: 1.07, added: NEW2 },
+    breaks:    { moods: ["energetic", "happy"],     level: 0.97, added: NEW2 },
+    newjack:   { moods: ["happy", "energetic"],     level: 1.31, added: NEW2 },
+    beatbox:   { moods: ["nostalgic", "energetic"], level: 1.00, added: NEW2 },
+    boxfast:   { moods: ["energetic", "heavy"],     level: 0.92, added: NEW2 }
   };
   BEATS.forEach(function (b) { var m = META[b.id] || {}; b.moods = m.moods || []; b.level = m.level || 1; b.added = m.added || null; });
+  // within a genre, newest first
+  BEATS.sort(function (a, b) { return (FAM[a.family] - FAM[b.family]) || (b.added || "").localeCompare(a.added || ""); });
 
   QB.BEATS = BEATS;
   QB.beatById = function (id) { for (var i = 0; i < BEATS.length; i++) if (BEATS[i].id === id) return BEATS[i]; return null; };

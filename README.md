@@ -88,7 +88,7 @@ serve.js          tiny static dev server
 
 ## The beats
 
-All 13 are composed in code (`js/audio.js`, section *the beats*) — no samples, so no licensing issues.
+All 18 are composed in code (`js/audio.js`, section *the beats*) — no samples, so no licensing issues.
 The picker has a genre filter (همه / بوم‌بپ / ترپ و دریل / ایرانی / بقیه); Endless mode rotates only through the selected genre.
 
 | Name | Genre | BPM | Notes |
@@ -104,15 +104,20 @@ The picker has a genre filter (همه / بوم‌بپ / ترپ و دریل / ا�
 | شور | Persian trap | 74 | santur riff in Dastgah-e Shur with a real quarter-tone (E-koron) |
 | زورخونه | Zarb | 84 | zarb dum/tak, zang bell, drone |
 | شب‌های تهران | Lo-fi | 76 | jazzy EP chords with tape wobble |
+| بانس | Old-school bounce | 95 | kick on the "and"s, octave-pop bass, offbeat piano stabs |
+| بریک | Funky breakbeat | 100 | ghost-note snares, organ stabs, funky bass |
+| نیوجک | New jack swing | 104 | heavy swing, gated snare + clap, synth stabs |
+| بیت‌باکس | Beatbox | 92 | only mouth sounds: lip kick, "pf" snare, "ts" hats, hummed bass |
+| باکس تند | Fast beatbox | 100 | busier lip kicks, 16th "ts" hats, inward snares |
 | ساحل | G-funk | 96 | funky bass, whistle lead, claps |
 | اولد اسکول | Electro / old school | 104 | 808 cowbell, staccato bass, scratches |
 
 Trap BPMs are written as the rap (half-time) tempo; the number in brackets is the producer's double-time BPM.
 
 A beat is an object `{ id, family, name, genre, vibe, bpm, swing, drums(kit, bar, step, time, stepDur), music(...) }`,
-called once per 16th note. `family` is one of `boombap | trap | persian | other`. Copy one to make a new one.
+called once per 16th note. `family` is one of `oldschool | boombap | beatbox | trap | persian | other`. Copy one to make a new one.
 Instruments available on `kit`: kick, snare, clap, hat, rim, crash, sub (808 w/ glide), bass, piano, ep, pad,
-bell, santur, zang, dum, tak, brass, scratch, cowbell, lead, saw, vinyl.
+bell, santur, zang, dum, tak, brass, scratch, cowbell, lead, saw, organ, vinyl, and a beatbox kit: bbKick, bbSnare, bbInward, bbHat, bbClick, bbBass.
 
 Shared-library MP3s can join a genre filter by adding `"family": "boombap"` (etc.) to their manifest entry.
 
