@@ -205,7 +205,7 @@ Install Android Studio, then `npm install`, `npm run android:sync` and open the 
 
 ## Teaser video
 
-`promo/teaser.html` is a 20-second 9:16 teaser (1080×1920) drawn on a canvas and synced to the beat
+`promo/teaser.html` is a 25-second 9:16 teaser (1080×1920) drawn on a canvas and synced to the beat
 ("Oldskool Loop" by makshahn, CC0). Open it in a browser and press ▶ to preview. To render the MP4:
 ```bash
 npm install
