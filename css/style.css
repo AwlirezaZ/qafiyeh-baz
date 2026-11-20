@@ -348,15 +348,30 @@ body[data-screen="home"] .page-photo, body[data-screen="game"] .page-photo { dis
 .foot { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; padding-top: 16px; border-top: 1.5px solid var(--line); color: var(--muted); font-size: 13.5px; }
 
 /* ---------- setup: step 1 (level) ---------- */
-.setup, .more { width: 100%; max-width: 600px; margin: 0 auto; padding: 4px 20px 140px; display: flex; flex-direction: column; gap: 22px; }
+.setup { width: 100%; max-width: 600px; margin: 0 auto; padding: 4px 20px 170px; display: flex; flex-direction: column; gap: 22px; }
 
-.stepper { list-style: none; margin: 6px 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); position: relative; }
+.stepper { list-style: none; width: 100%; max-width: 600px; margin: 4px auto 18px; padding: 0 20px; display: grid; grid-template-columns: repeat(3, 1fr); position: relative; }
 .stepper::before { content: ""; position: absolute; top: 16px; inset-inline: 16%; height: 2px; background: var(--line); }
 .stepper li { display: flex; justify-content: center; position: relative; }
 .stepper button { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0; background: none; border: 0; color: var(--muted); font-size: 14px; }
 .stepper b { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--surface); border: 1.5px solid var(--line); color: var(--text); font-family: var(--font-num); font-size: 16px; line-height: 1; }
 .stepper .is-on button { color: var(--text); font-weight: 700; }
 .stepper .is-on b { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.stepper .is-done b { border-color: var(--accent); color: var(--accent); }
+.stepper .is-done button { color: var(--text); }
+.step { display: flex; flex-direction: column; gap: 22px; }
+.step[hidden] { display: none !important; }
+.step-next { align-self: stretch; justify-content: space-between; min-height: 54px; font-size: 16px; }
+.step-next svg { width: 20px; height: 20px; }
+.level-note { margin: -6px 0 0; }
+#rhymeField .adv-body { padding: 0; }
+.speed-note { margin: 10px 0 0; }
+.startbar-actions { display: flex; align-items: center; gap: 12px; }
+.rec-btn { width: 52px; height: 52px; color: var(--muted); }
+.rec-btn svg { width: 26px; height: 26px; }
+.rec-btn.is-on { color: #ff3b47; border-color: #ff3b47; box-shadow: 0 0 0 3px rgba(255,59,71,.18); }
+.rec-btn.is-on svg { animation: recBlink 1.4s ease-in-out infinite; }
+#recField .toggle:first-child { margin-top: 6px; }
 
 .levels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .level-card {
@@ -395,13 +410,13 @@ body[data-screen="home"] .page-photo, body[data-screen="game"] .page-photo { dis
 /* start bar */
 .startbar {
   position: fixed; inset-inline: 0; bottom: 0; z-index: 20;
-  display: flex; flex-direction: row-reverse; align-items: center; justify-content: space-between; gap: 16px;
-  padding: 14px max(20px, calc((100vw - 600px) / 2 + 20px)) calc(22px + env(safe-area-inset-bottom));
-  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--bg) 94%, transparent) 35%);
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 12px max(20px, calc((100vw - 600px) / 2 + 20px)) calc(24px + env(safe-area-inset-bottom));
+  background: color-mix(in srgb, var(--bg) 88%, transparent); border-top: 1px solid var(--line);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
 }
 .startbar-summary { display: flex; flex-direction: column; color: var(--muted); font-size: 14px; line-height: 1.6; min-width: 0; text-align: start; }
 .startbar-summary span:first-child { color: var(--text); font-weight: 700; }
-[data-screen="more"] .startbar .btn { flex: 1; }
 
 /* ---------- step 2: words, beat, options ---------- */
 .field { min-width: 0; }
@@ -965,7 +980,6 @@ input[type="range"] { accent-color: var(--accent); width: 100%; }
 [data-theme="street"] .toggle input:checked + .toggle-ui::after { background: #fff; }
 [data-theme="street"] #beatSort, [data-theme="street"] .beat-search { border-radius: 999px; }
 [data-theme="street"] .advanced summary { color: var(--text); }
-[data-theme="street"] [data-screen="more"] .startbar .btn { border-radius: var(--radius-lg); min-height: 60px; font-size: 19px; }
 
 /* game: rhyme words become dripping pills; the three free beats are dots on a line */
 [data-theme="street"] .row-num { display: none; }

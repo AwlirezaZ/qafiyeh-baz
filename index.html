@@ -67,6 +67,7 @@
     <symbol id="i-santur" viewBox="0 0 48 48"><path d="M6 34L14 12h20l8 22z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/><path d="M12 18h24M10 24h28M8 30h32" stroke="currentColor" stroke-width="2"/><path d="M20 40l8-10M30 42l4-12" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></symbol>
     <symbol id="i-mouth" viewBox="0 0 48 48"><rect x="18" y="5" width="12" height="20" rx="6" fill="currentColor"/><path d="M11 21a13 13 0 0026 0M24 34v8M17 42h14" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M6 14c-2 4-2 8 0 12M42 14c2 4 2 8 0 12" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round"/></symbol>
     <symbol id="i-wave" viewBox="0 0 48 48"><path d="M6 24h3M12 16v16M18 10v28M24 18v12M30 8v32M36 14v20M42 22v4" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/></symbol>
+    <symbol id="i-rec" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4.8" fill="currentColor"/></symbol>
     <symbol id="i-moon" viewBox="0 0 24 24"><path d="M3 9.5h18a9 9 0 01-18 0z" fill="currentColor"/></symbol>
   </svg>
   <!-- paint drips under the street theme's pill buttons -->
@@ -156,130 +157,112 @@
     </nav>
   </section>
 
-  <!-- ============ SETUP (step 1: level) ============ -->
+  <!-- ============ SETUP: 1 level · 2 words & rhymes · 3 beat ============ -->
   <section class="screen" data-screen="setup">
     <header class="topbar page-top">
       <button class="icon-btn round" data-go="home" aria-label="برگشت"><svg><use href="#i-back"/></svg></button>
-      <div class="page-title"><h2 class="setup-title" id="setupTitle">بازی کلاسیک</h2><p>سطح خودت رو انتخاب کن</p></div>
+      <div class="page-title"><h2 class="setup-title" id="setupTitle">بازی کلاسیک</h2><p id="setupSub">سطح خودت رو انتخاب کن</p></div>
       <img class="page-logo" src="img/logo-mark.png" alt="" aria-hidden="true" width="40" height="47">
     </header>
+
+    <ol class="stepper" aria-label="مراحل">
+      <li data-stepper="1"><button type="button" data-step="1"><b>۱</b><span>سطح</span></button></li>
+      <li data-stepper="2"><button type="button" data-step="2"><b>۲</b><span>کلمه‌ها</span></button></li>
+      <li data-stepper="3"><button type="button" data-step="3"><b>۳</b><span id="stepBeat">بیت</span></button></li>
+    </ol>
 
     <main class="setup">
-      <ol class="stepper" aria-label="مراحل">
-        <li class="is-on"><button type="button" data-more="top"><b>۱</b><span>سطح</span></button></li>
-        <li><button type="button" data-more="words"><b>۲</b><span>کلمه‌ها</span></button></li>
-        <li><button type="button" data-more="beat"><b>۳</b><span id="stepBeat">بیت</span></button></li>
-      </ol>
-      <div class="levels" id="levelChips"></div>
-      <div class="row-links">
-        <button type="button" class="row-link" data-more="words">
-          <svg class="rl-icon"><use href="#i-tag"/></svg>
-          <span class="rl-text"><b>دسته‌بندی کلمه‌ها</b><small id="rlWords"></small></span>
-          <svg class="rl-chev"><use href="#i-chev"/></svg>
-        </button>
-        <button type="button" class="row-link" data-more="beat">
-          <svg class="rl-icon"><use href="#i-note"/></svg>
-          <span class="rl-text"><b id="rlBeatTitle">انتخاب بیت</b><small id="rlBeat"></small></span>
-          <svg class="rl-chev"><use href="#i-chev"/></svg>
-        </button>
-        <button type="button" class="row-link" data-more="adv">
-          <svg class="rl-icon"><use href="#i-sliders"/></svg>
-          <span class="rl-text"><b>تنظیمات پیشرفته</b><small id="rlAdv">تنظیم دستی، طول، حالت تمیز و ضبط</small></span>
-          <svg class="rl-chev"><use href="#i-chev"/></svg>
-        </button>
+      <!-- step 1: level -->
+      <div class="step" data-panel="1">
+        <div class="levels" id="levelChips"></div>
+        <p class="note level-note" id="levelNote" hidden>قافیه‌ها رو دستی تنظیم کردی (مرحله‌ی ۲). یه سطح بزن تا برگرده به حالت آماده.</p>
+        <button type="button" class="btn btn-ghost step-next" data-step="2"><span>بعدی: کلمه‌ها</span><svg><use href="#i-chev"/></svg></button>
+      </div>
+
+      <!-- step 2: words, rhymes, length -->
+      <div class="step" data-panel="2" hidden>
+        <div class="field" id="wordsField">
+          <div class="field-head"><h3>دسته‌بندی کلمه‌ها</h3></div>
+          <div class="chips cards2" id="listChips"></div>
+          <label class="toggle"><input type="checkbox" id="cleanToggle"><span class="toggle-ui"></span><span>حالت تمیز <small>(بدون کلمه‌های بزرگسالانه)</small></span></label>
+        </div>
+
+        <div class="field" id="rhymeField">
+          <div class="field-head"><h3>قافیه‌ها</h3></div>
+          <div class="adv-body">
+            <div class="adv-row"><label>چندتا کلمه ببینم؟</label><div class="seg" id="fillSeg"></div></div>
+            <div class="adv-row"><label>کدوم خط‌ها هم‌قافیه باشن؟</label><div class="seg" id="schemeSeg"></div></div>
+            <div class="adv-row" id="customRow" hidden>
+              <label>الگوی خودت — روی هر خط بزن تا عوض شه (الف ← ب ← ج ← بی‌قافیه)</label>
+              <div class="pattern-edit" id="patternEdit"></div>
+            </div>
+            <div class="adv-row"><label>قافیه هر چند بار عوض شه؟</label><div class="seg" id="holdSeg"></div>
+              <small class="adv-hint" id="holdHint"></small></div>
+          </div>
+        </div>
+
+        <div class="field" id="lengthField">
+          <div class="field-head"><h3 id="lengthTitle">طول</h3></div>
+          <div class="chips" id="lengthChips"></div>
+        </div>
+        <button type="button" class="btn btn-ghost step-next" data-step="3"><span id="nextBeat">بعدی: بیت</span><svg><use href="#i-chev"/></svg></button>
+      </div>
+
+      <!-- step 3: beat (or tap tempo) -->
+      <div class="step" data-panel="3" hidden>
+        <div class="field" id="beatField">
+          <div class="field-head"><h3 id="beatTitle">بیت</h3></div>
+          <div class="beat-tools">
+            <button type="button" class="icon-btn" id="beatRandom" aria-label="یه بیت تصادفی" title="تصادفی"><svg><use href="#i-dice"/></svg></button>
+            <select id="beatSort" aria-label="مرتب‌سازی">
+              <option value="suggested">پیشنهادی</option><option value="played">بیشترین بازی</option><option value="new">جدیدترین</option>
+              <option value="fast">تندترین</option><option value="slow">آروم‌ترین</option><option value="name">اسم</option>
+            </select>
+            <label class="beat-search"><svg><use href="#i-search"/></svg><input type="search" id="beatSearch" placeholder="جستجو: اسم، سبک، حس، تهیه‌کننده…" aria-label="جستجوی بیت"></label>
+          </div>
+          <div class="chips beat-filter" id="beatFilter" role="group" aria-label="سبک بیت"></div>
+          <div class="chips beat-filter" id="beatMoods" role="group" aria-label="حال‌وهوا، سرعت و علاقه‌مندی‌ها"></div>
+          <p class="beat-count" id="beatCount" aria-live="polite"></p>
+          <div class="beat-list" id="beatList"></div>
+          <p class="note endless-note" id="endlessNote" hidden></p>
+          <div class="mine-head" id="mineHead" hidden><h4>بیت‌های من</h4></div>
+          <div class="beat-list" id="mineList"></div>
+          <label class="upload-card">
+            <input type="file" id="fileInput" accept="audio/*,.mp3,.wav,.m4a,.ogg">
+            <svg><use href="#i-upload"/></svg>
+            <span><b>بیت خودت رو بیار</b><small>MP3، WAV یا M4A — سرعت (BPM) رو خودمون پیدا می‌کنیم</small></span>
+          </label>
+        </div>
+
+        <div class="field" id="tapField" hidden>
+          <div class="field-head"><h3>ضرب رو بزن</h3></div>
+          <p class="note">آهنگ رو پخش کن (از هر جا)، بعد با ضربش این‌جا رو بزن. حداقل چهار بار.</p>
+          <button class="tap-pad" id="tapPad"><span class="tap-bpm" id="tapBpm">—</span><span class="tap-label" id="tapLabel">بزن</span></button>
+          <div class="tap-tools">
+            <div class="stepper-num">
+              <button class="icon-btn sm" data-bpm="-1" aria-label="کمتر"><svg><use href="#i-minus"/></svg></button>
+              <input type="number" id="tapBpmInput" min="50" max="200" step="1" inputmode="numeric" aria-label="BPM">
+              <button class="icon-btn sm" data-bpm="1" aria-label="بیشتر"><svg><use href="#i-plus"/></svg></button>
+              <span class="unit">BPM</span>
+            </div>
+            <label class="toggle"><input type="checkbox" id="clickToggle"><span class="toggle-ui"></span><span>صدای مترونوم</span></label>
+          </div>
+        </div>
+
+        <div class="field" id="speedField">
+          <div class="field-head"><h3>سرعت توپ</h3></div>
+          <div class="seg" id="speedSeg"></div>
+          <p class="note speed-note">«نصف» یعنی هر خط دو برابر طول می‌کشه — برای بیت‌های تند.</p>
+        </div>
       </div>
     </main>
 
     <div class="startbar">
-      <button class="btn btn-primary btn-lg drip" id="startBtn"><svg class="i-start"><use href="#i-play"/></svg><span>بزن بریم</span><svg class="drips" aria-hidden="true"><use href="#drips"/></svg></button>
       <div class="startbar-summary" id="summary"></div>
-    </div>
-  </section>
-
-  <!-- ============ MORE (step 2–3: words, beat and everything else) ============ -->
-  <section class="screen" data-screen="more">
-    <header class="topbar page-top">
-      <button class="icon-btn round" data-go="setup" aria-label="برگشت"><svg><use href="#i-back"/></svg></button>
-      <div class="page-title"><h2 class="setup-title">تنظیمات بازی</h2><p>کلمه‌ها، بیت و گزینه‌های بیشتر</p></div>
-      <img class="page-logo" src="img/logo-mark.png" alt="" aria-hidden="true" width="40" height="47">
-    </header>
-
-    <main class="more">
-      <div class="field" id="wordsField">
-        <div class="field-head"><h3>کلمه‌ها</h3></div>
-        <div class="chips cards2" id="listChips"></div>
-        <label class="toggle"><input type="checkbox" id="cleanToggle"><span class="toggle-ui"></span><span>حالت تمیز <small>(بدون کلمه‌های بزرگسالانه)</small></span></label>
+      <div class="startbar-actions">
+        <button type="button" class="icon-btn round rec-btn" id="recBtn" aria-label="ضبط ویدیو" title="ضبط ویدیو"><svg><use href="#i-rec"/></svg></button>
+        <button class="btn btn-primary btn-lg drip" id="startBtn"><svg class="i-start"><use href="#i-play"/></svg><span>بزن بریم</span><svg class="drips" aria-hidden="true"><use href="#drips"/></svg></button>
       </div>
-
-      <div class="field" id="lengthField">
-        <div class="field-head"><h3 id="lengthTitle">طول</h3></div>
-        <div class="chips" id="lengthChips"></div>
-      </div>
-
-      <div class="field" id="recField">
-        <div class="field-head"><h3>ضبط</h3></div>
-        <label class="toggle"><input type="checkbox" id="recToggle"><span class="toggle-ui"></span><span>ضبط ویدیو <small>(برای استوری و تلگرام)</small></span></label>
-        <label class="toggle" id="camRow"><input type="checkbox" id="camToggle"><span class="toggle-ui"></span><span>با دوربین سلفی</span></label>
-        <p class="note rec-note">ویدیو فقط روی دستگاه خودت ساخته می‌شه و جایی آپلود نمی‌شه. با هدفون بهتر درمیاد.</p>
-      </div>
-
-      <div class="field" id="beatField">
-        <div class="field-head"><h3 id="beatTitle">بیت</h3></div>
-        <div class="beat-tools">
-          <button type="button" class="icon-btn" id="beatRandom" aria-label="یه بیت تصادفی" title="تصادفی"><svg><use href="#i-dice"/></svg></button>
-          <select id="beatSort" aria-label="مرتب‌سازی">
-            <option value="suggested">پیشنهادی</option><option value="played">بیشترین بازی</option><option value="new">جدیدترین</option>
-            <option value="fast">تندترین</option><option value="slow">آروم‌ترین</option><option value="name">اسم</option>
-          </select>
-          <label class="beat-search"><svg><use href="#i-search"/></svg><input type="search" id="beatSearch" placeholder="جستجو: اسم، سبک، حس، تهیه‌کننده…" aria-label="جستجوی بیت"></label>
-        </div>
-        <div class="chips beat-filter" id="beatFilter" role="group" aria-label="سبک بیت"></div>
-        <div class="chips beat-filter" id="beatMoods" role="group" aria-label="حال‌وهوا، سرعت و علاقه‌مندی‌ها"></div>
-        <p class="beat-count" id="beatCount" aria-live="polite"></p>
-        <div class="beat-list" id="beatList"></div>
-        <p class="note endless-note" id="endlessNote" hidden></p>
-        <div class="mine-head" id="mineHead" hidden><h4>بیت‌های من</h4></div>
-        <div class="beat-list" id="mineList"></div>
-        <label class="upload-card">
-          <input type="file" id="fileInput" accept="audio/*,.mp3,.wav,.m4a,.ogg">
-          <svg><use href="#i-upload"/></svg>
-          <span><b>بیت خودت رو بیار</b><small>MP3، WAV یا M4A — سرعت (BPM) رو خودمون پیدا می‌کنیم</small></span>
-        </label>
-      </div>
-
-      <div class="field" id="tapField" hidden>
-        <div class="field-head"><h3>ضرب رو بزن</h3></div>
-        <p class="note">آهنگ رو پخش کن (از هر جا)، بعد با ضربش این‌جا رو بزن. حداقل چهار بار.</p>
-        <button class="tap-pad" id="tapPad"><span class="tap-bpm" id="tapBpm">—</span><span class="tap-label" id="tapLabel">بزن</span></button>
-        <div class="tap-tools">
-          <div class="stepper-num">
-            <button class="icon-btn sm" data-bpm="-1" aria-label="کمتر"><svg><use href="#i-minus"/></svg></button>
-            <input type="number" id="tapBpmInput" min="50" max="200" step="1" inputmode="numeric" aria-label="BPM">
-            <button class="icon-btn sm" data-bpm="1" aria-label="بیشتر"><svg><use href="#i-plus"/></svg></button>
-            <span class="unit">BPM</span>
-          </div>
-          <label class="toggle"><input type="checkbox" id="clickToggle"><span class="toggle-ui"></span><span>صدای مترونوم</span></label>
-        </div>
-      </div>
-
-      <details class="advanced" id="advanced">
-        <summary>تنظیم دستی</summary>
-        <div class="adv-body">
-          <div class="adv-row"><label>چندتا کلمه ببینم؟</label><div class="seg" id="fillSeg"></div></div>
-          <div class="adv-row"><label>کدوم خط‌ها هم‌قافیه باشن؟</label><div class="seg" id="schemeSeg"></div></div>
-          <div class="adv-row" id="customRow" hidden>
-            <label>الگوی خودت — روی هر خط بزن تا عوض شه (الف ← ب ← ج ← بی‌قافیه)</label>
-            <div class="pattern-edit" id="patternEdit"></div>
-          </div>
-          <div class="adv-row"><label>قافیه هر چند بار عوض شه؟</label><div class="seg" id="holdSeg"></div>
-            <small class="adv-hint" id="holdHint"></small></div>
-          <div class="adv-row"><label>سرعت توپ</label><div class="seg" id="speedSeg"></div></div>
-        </div>
-      </details>
-    </main>
-
-    <div class="startbar">
-      <button class="btn btn-primary btn-lg" data-go="setup">تأیید تنظیمات</button>
     </div>
   </section>
 
@@ -410,6 +393,18 @@
         <h4>کلمه‌ها</h4>
         <label class="toggle"><input type="checkbox" id="cleanToggle2"><span class="toggle-ui"></span><span>حالت تمیز</span></label>
       </div>
+    </form>
+  </dialog>
+
+  <dialog class="sheet" id="recDlg">
+    <form method="dialog" class="sheet-inner">
+      <header class="sheet-head"><h3>ضبط ویدیو</h3><button class="icon-btn round" value="close" aria-label="بستن"><svg><use href="#i-close"/></svg></button></header>
+      <div class="sheet-body" id="recField">
+        <label class="toggle"><input type="checkbox" id="recToggle"><span class="toggle-ui"></span><span>ضبط ویدیو <small>(برای استوری و تلگرام)</small></span></label>
+        <label class="toggle" id="camRow"><input type="checkbox" id="camToggle"><span class="toggle-ui"></span><span>با دوربین سلفی</span></label>
+        <p class="note rec-note">ویدیو فقط روی دستگاه خودت ساخته می‌شه و جایی آپلود نمی‌شه. با هدفون بهتر درمیاد.</p>
+      </div>
+      <footer class="sheet-foot"><button class="btn btn-primary" value="close">باشه</button></footer>
     </form>
   </dialog>
 

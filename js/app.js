@@ -50,8 +50,24 @@
     if (target) requestAnimationFrame(function () { window.scrollTo(0, target.getBoundingClientRect().top + window.scrollY - 96); });
     else window.scrollTo(0, 0);
     onScroll();
-    if (name !== "setup" && name !== "more") stopPreview();
+    if (name !== "setup") stopPreview();
   }
+  /* setup is a 3-step flow: 1 level · 2 words & rhymes · 3 beat */
+  var step = 1;
+  var STEP_SUB = { 1: "سطح خودت رو انتخاب کن", 2: "کلمه‌ها و قافیه‌ها", 3: "بیت رو انتخاب کن" };
+  function goStep(n) {
+    step = n;
+    $$(".step").forEach(function (p) { p.hidden = +p.dataset.panel !== n; });
+    $$("[data-stepper]").forEach(function (li) {
+      var k = +li.dataset.stepper;
+      li.classList.toggle("is-on", k === n); li.classList.toggle("is-done", k < n);
+      li.querySelector("button").setAttribute("aria-current", k === n ? "step" : "false");
+    });
+    $("#setupSub").textContent = n === 3 && S.mode === "tap" ? "ضرب آهنگت رو بزن" : n === 3 && S.mode === "endless" ? "بیت اول رو انتخاب کن" : STEP_SUB[n];
+    if (n !== 3) stopPreview();
+    if (current === "setup") window.scrollTo(0, 0);
+  }
+  function openSetup(n) { renderSetup(); goStep(n || 1); show("setup"); }
   function onScroll() {
     var home = $('[data-screen="home"]');
     home.classList.toggle("is-scrolled", current === "home" && window.scrollY > Math.min(320, window.innerHeight * 0.4));
@@ -357,7 +373,7 @@
     if (!m.wave) m.wave = QB.peaks(buf, 40);
     try { localStorage.setItem(metaKey(desc), JSON.stringify(m)); } catch (e) {}
     applyMeta(desc, m);
-    if (current === "setup" || current === "more") { renderBeats(); updateSummary(); }
+    if (current === "setup") { renderBeats(); updateSummary(); }
     if (current === "home") renderHome();
   }
 
@@ -694,7 +710,8 @@
     $("#lengthField").hidden = S.mode === "tap";
     $("#beatTitle").textContent = S.mode === "endless" ? "بیت اول (بقیه پشت‌سرش میان)" : "بیت";
     $("#stepBeat").textContent = S.mode === "tap" ? "ضرب" : "بیت";
-    $("#rlBeatTitle").textContent = S.mode === "tap" ? "ضرب رو بزن" : S.mode === "endless" ? "بیت اول" : "انتخاب بیت";
+    $("#nextBeat").textContent = S.mode === "tap" ? "بعدی: ضرب" : "بعدی: بیت";
+    $("#lengthField").hidden = S.mode === "tap";
     renderLevels(); renderAdvanced(); renderLists(); renderLengths(); renderBeats();
     $("#tapBpmInput").value = S.tapBpm;
     $("#tapBpm").textContent = fa(S.tapBpm);
@@ -707,10 +724,16 @@
     $(".rec-note").textContent = canRec
       ? "ویدیو فقط روی دستگاه خودت ساخته می‌شه و جایی آپلود نمی‌شه. با هدفون بهتر درمیاد."
       : "مرورگرت ضبط ویدیو رو پشتیبانی نمی‌کنه.";
-    if (!matchLevel()) $("#advanced").open = true;
+    renderRecBtn();
     updateSummary();
   }
 
+  function renderRecBtn() {
+    var on = QB.Recorder.supported() && S.rec, b = $("#recBtn");
+    b.classList.toggle("is-on", on);
+    b.setAttribute("aria-pressed", on);
+    b.title = on ? (S.cam ? "ضبط ویدیو با دوربین: روشن" : "ضبط ویدیو بدون دوربین: روشن") : "ضبط ویدیو: خاموش";
+  }
   function updateSummary() {
     var lv = matchLevel();
     var parts = [lv ? QB.LEVELS[lv].label : "دستی"];
@@ -722,14 +745,7 @@
     if (S.scheme === "custom") parts.splice(1, 0, schemeLabel({ scheme: "custom", pattern: S.pattern }));
     if (holdLabel(+S.hold)) parts.push(holdLabel(+S.hold));
     $("#summary").innerHTML = "<span>" + esc(parts.slice(0, 2).join(" · ")) + "</span><span>" + esc(parts.slice(2).join(" · ")) + "</span>";
-    // step-1 rows show what's chosen on step 2
-    var wl = QB.WORD_LISTS[S.list];
-    $("#rlWords").textContent = (wl ? wl.label : "") + (S.clean ? " · حالت تمیز" : "");
-    var bb = findBeat(S.beat);
-    $("#rlBeat").textContent = S.mode === "tap" ? fa(S.tapBpm) + " BPM" : bb ? bb.name + (effBpm(bb) ? " · " + fa(Math.round(effBpm(bb))) + " BPM" : "") : "";
-    var adv = [S.mode === "classic" ? (S.bars === "full" ? "کل ترک" : fa(S.bars) + " بار") : S.mode === "endless" ? "هر " + fa(S.switchEvery) + " بار بیت عوض" : null,
-               S.rec ? "ضبط ویدیو" : null, matchLevel() ? null : "تنظیم دستی"].filter(Boolean);
-    $("#rlAdv").textContent = adv.length ? adv.join(" · ") : "تنظیم دستی، طول، حالت تمیز و ضبط";
+    $("#levelNote").hidden = !!lv;
   }
 
   /* ---------- previews ---------- */
@@ -1110,7 +1126,7 @@
         S.beatFilter = "all"; S.beatMood = "all"; S.beatTempo = "all"; S.onlyFavs = false; beatQuery = "";
         $("#beatSearch").value = ""; save(); renderBeats(); return;
       }
-      var t = e.target.closest("[data-genre],[data-library],[data-continue],[data-more],[data-pick],[data-pline],[data-preset],[data-hold],[data-fav],[data-onlyfavs],[data-mood],[data-tempo],[data-layers],[data-skip],[data-bsreset],[data-bfilter],[data-go],[data-mode],[data-open],[data-level],[data-fill],[data-scheme],[data-speed],[data-list],[data-bars],[data-every],[data-preview],[data-del],[data-beat],[data-bpm],.theme-dot");
+      var t = e.target.closest("[data-genre],[data-library],[data-continue],[data-step],[data-pick],[data-pline],[data-preset],[data-hold],[data-fav],[data-onlyfavs],[data-mood],[data-tempo],[data-layers],[data-skip],[data-bsreset],[data-bfilter],[data-go],[data-mode],[data-open],[data-level],[data-fill],[data-scheme],[data-speed],[data-list],[data-bars],[data-every],[data-preview],[data-del],[data-beat],[data-bpm],.theme-dot");
       if (!t) return;
       var d = t.dataset;
       if (d.genre) {
@@ -1118,25 +1134,20 @@
         S.beatFilter = d.genre; S.onlyFavs = false;
         var cur = findBeat(S.beat);
         if (!cur || cur.family !== d.genre) { var first = library.filter(function (b) { return b.family === d.genre; })[0]; if (first) S.beat = first.id; }
-        save(); renderSetup(); show("more", "#beatField"); return;
+        save(); openSetup(3); return;
       }
       if (d.library != null) {
         if (S.mode === "tap") S.mode = "classic";
         if (d.library === "favs") { S.onlyFavs = true; S.beatFilter = "all"; }
-        save(); renderSetup(); show("more", "#beatField");
+        save(); openSetup(3);
         if (d.library === "search") setTimeout(function () { $("#beatSearch").focus(); }, 60);
         return;
       }
       if (d.continue != null) { startGame(); return; }
-      if (d.more) {
-        if (d.more === "top") { show("setup"); return; }
-        show("more", d.more === "words" ? "#wordsField" : d.more === "beat" ? (S.mode === "tap" ? "#tapField" : "#beatField") : "#lengthField");
-        if (d.more === "adv") $("#advanced").open = true;
-        return;
-      }
+      if (d.step) { goStep(+d.step); return; }
       if (d.pick && !e.target.closest("[data-preview]")) {
         if (S.mode === "tap") S.mode = "classic";
-        S.beat = d.pick; save(); renderSetup(); show("setup"); return;
+        S.beat = d.pick; save(); openSetup(1); return;
       }
       if (d.fav) {
         e.stopPropagation();
@@ -1151,8 +1162,8 @@
       if (d.skip) { setBeatOpt(S.beat, "skip", d.skip === "auto" ? null : +d.skip); renderBeats(); restartPreviewIf(S.beat); return; }
       if (d.bsreset) { S.beatOpts && delete S.beatOpts[d.bsreset]; save(); renderBeats(); updateSummary(); restartPreviewIf(d.bsreset); return; }
       if (d.bfilter) { S.beatFilter = d.bfilter; save(); renderBeats(); return; }
-      if (d.go) { e.preventDefault(); if (game.running) game.stop(true); if (d.go === "setup") renderSetup(); show(d.go); return; }
-      if (d.mode && !t.closest(".setup")) { S.mode = d.mode; save(); renderSetup(); show("setup"); return; }
+      if (d.go) { e.preventDefault(); if (game.running) game.stop(true); show(d.go); return; }
+      if (d.mode && !t.closest(".setup")) { S.mode = d.mode; save(); openSetup(1); return; }
       if (d.open === "settings") { $("#settingsDlg").showModal(); return; }
       if (t.classList.contains("theme-dot")) { applyTheme(d.theme); return; }
       if (d.level) { var L = QB.LEVELS[d.level]; S.fill = L.fill; S.scheme = L.scheme; save(); renderLevels(); renderAdvanced(); updateSummary(); return; }
@@ -1226,8 +1237,9 @@
       if (e.target.id === "bsAutoHalf") { S.autoHalf = e.target.checked; save(); }
     });
 
-    $("#recToggle").addEventListener("change", function (e) { S.rec = e.target.checked; save(); $("#camRow").hidden = !S.rec; updateSummary(); });
-    $("#camToggle").addEventListener("change", function (e) { S.cam = e.target.checked; save(); });
+    $("#recToggle").addEventListener("change", function (e) { S.rec = e.target.checked; save(); $("#camRow").hidden = !S.rec; renderRecBtn(); });
+    $("#recBtn").addEventListener("click", function () { $("#recDlg").showModal(); });
+    $("#camToggle").addEventListener("change", function (e) { S.cam = e.target.checked; save(); renderRecBtn(); });
     $("#dailyBtn").addEventListener("click", startDaily);
     $("#dailyShare").addEventListener("click", shareDaily);
     function errMsg(e) { return (e && (e.message || e.errorMessage || e.name)) || String(e); }
@@ -1371,7 +1383,7 @@
     $("#replayNew").addEventListener("click", function () {
       if (lastCfg) startGame();
     });
-    $("#toSetup").addEventListener("click", function () { renderSetup(); show("setup"); });
+    $("#toSetup").addEventListener("click", function () { openSetup(1); });
 
     document.addEventListener("keydown", function (e) {
       if (current === "game" && e.key === "Escape") { e.preventDefault(); quitGame(); }
@@ -1421,6 +1433,7 @@
     });
     loadManifest();
     renderSetup();
+    goStep(1);
     show("home");
   }
 
