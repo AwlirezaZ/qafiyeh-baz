@@ -10,7 +10,7 @@
   var DEFAULTS = {
     mode: "classic", level: "beginner", fill: "all", scheme: "aabb", speed: 1,
     list: "all", clean: false, beat: "bounce", beatFilter: "all", bars: 16, switchEvery: 16,
-    tapBpm: 90, click: false, theme: "poster", lag: 0, rec: false, cam: true,
+    tapBpm: 90, click: false, theme: "street", lag: 0, rec: false, cam: true,
     beatMood: "all", beatTempo: "all", beatSort: "suggested", onlyFavs: false, favs: [], beatOpts: {}, autoHalf: true,
     pattern: "AAAA", hold: 4
   };
@@ -18,8 +18,11 @@
   try { S = JSON.parse(localStorage.getItem("qb.settings") || "{}") || {}; } catch (e) { S = {}; }
   Object.keys(DEFAULTS).forEach(function (k) { if (S[k] == null) S[k] = DEFAULTS[k]; });
   function save() { try { localStorage.setItem("qb.settings", JSON.stringify(S)); } catch (e) {} }
+  // the redesign: everyone starts on the new street theme once (they can switch back in settings)
+  if (!S.v2) { S.theme = "street"; S.v2 = true; save(); }
 
   var THEMES = [
+    { id: "street",   name: "زیرزمینی",      sw: ["#0a0a0b", "#ff4d67", "#4d8ff7"], meta: "#0a0a0b" },
     { id: "poster",   name: "پوستر خیابونی", sw: ["#0f0f0e", "#ff5b1f", "#efe9dc"], meta: "#0f0f0e" },
     { id: "cassette", name: "نوار کاست",     sw: ["#1b1511", "#e8a33d", "#d9553b"], meta: "#1b1511" },
     { id: "neon",     name: "شب کاشی",       sw: ["#080b1a", "#3ef2e0", "#ff4fb8"], meta: "#080b1a" }
@@ -36,13 +39,22 @@
 
   /* ---------- screens ---------- */
   var current = "home";
-  function show(name) {
+  function show(name, anchor) {
     current = name;
     if (name === "home") renderHome();
     if (name === "stats") renderStats();
+    if (name === "setup") updateSummary();
     $$(".screen").forEach(function (s) { s.classList.toggle("is-active", s.dataset.screen === name); });
-    window.scrollTo(0, 0);
-    if (name !== "setup") stopPreview();
+    document.body.dataset.screen = name;
+    var target = anchor && $(anchor);
+    if (target) requestAnimationFrame(function () { window.scrollTo(0, target.getBoundingClientRect().top + window.scrollY - 96); });
+    else window.scrollTo(0, 0);
+    onScroll();
+    if (name !== "setup" && name !== "more") stopPreview();
+  }
+  function onScroll() {
+    var home = $('[data-screen="home"]');
+    home.classList.toggle("is-scrolled", current === "home" && window.scrollY > Math.min(320, window.innerHeight * 0.4));
   }
 
   /* ---------- streaks & stats (this device only) ---------- */
@@ -118,8 +130,68 @@
     $("#dailyMeta").textContent = [info.beat.name + " (" + info.beat.genre + ")", QB.SCHEMES[info.scheme].label,
       QB.FILLS[info.fill].label, info.list === "multi" ? "چندهجایی" : null, fa(info.bars) + " بار"].filter(Boolean).join(" · ");
     $("#dailyCard").classList.toggle("is-done", done);
+    renderContinue(s); renderGenres(); renderFavs();
     $("#dailyBtnText").textContent = done ? "دوباره" : "قبول";
     $(".daily-tag span").textContent = done ? "چالش امروز ✓" : "چالش امروز";
+  }
+  /* genre art (from the Figma file) — families without a picture get an icon */
+  var FAMILY_ART = {
+    boombap: { img: "img/genre-boombap.webp", label: "بوم‌بپ" },
+    trap: { img: "img/genre-trap.webp", label: "ترپ" },
+    other: { img: "img/genre-chill.webp", label: "چیل" },
+    oldschool: { icon: "cassette", label: "اولد اسکول" },
+    beatbox: { icon: "mouth", label: "بیت‌باکس" },
+    persian: { icon: "santur", label: "ایرانی" }
+  };
+  var FAMILY_ORDER = ["boombap", "trap", "other", "oldschool", "beatbox", "persian"];
+  function artFor(b) {
+    var a = (b && FAMILY_ART[b.family]) || null;
+    if (a && a.img) return { style: "background-image:url(" + a.img + ")", html: "" };
+    return { style: "", html: '<svg><use href="#i-' + (a ? a.icon : "wave") + '"/></svg>' };
+  }
+  function renderContinue(s) {
+    var sec = $("#continueSec"), b = S.mode === "tap" ? null : findBeat(S.beat);
+    sec.hidden = !s.games;
+    if (!s.games) return;
+    var modeName = { classic: "کلاسیک", endless: "بی‌پایان", tap: "ضرب‌گیری" }[S.mode];
+    $("#ccName").textContent = b ? b.name : "ضرب دستی";
+    var lv = matchLevel();
+    $("#ccMeta").textContent = [modeName, lv ? QB.LEVELS[lv].label : "دستی", b && b.genre].filter(Boolean).join(" · ");
+    var art = artFor(b), el = $("#ccArt");
+    el.setAttribute("style", art.style); el.innerHTML = art.html;
+  }
+  function renderGenres() {
+    var box = $("#genreRow"); box.innerHTML = "";
+    FAMILY_ORDER.forEach(function (f) {
+      var n = library.filter(function (b) { return b.family === f; }).length;
+      if (!n) return;
+      var a = FAMILY_ART[f], el = document.createElement("button");
+      el.type = "button"; el.className = "genre-card" + (a.img ? "" : " is-art"); el.dataset.genre = f;
+      if (a.img) el.style.backgroundImage = "url(" + a.img + ")";
+      el.innerHTML = (a.img ? "" : '<svg class="g-icon"><use href="#i-' + a.icon + '"/></svg>') +
+        '<span class="g-count">' + fa(n) + '</span><span class="g-label">' + a.label + "</span>";
+      el.setAttribute("aria-label", a.label + " — " + fa(n) + " بیت");
+      box.appendChild(el);
+    });
+  }
+  function renderFavs() {
+    var box = $("#favRow"); box.innerHTML = "";
+    var favs = (S.favs || []).map(findBeat).filter(Boolean);
+    if (!favs.length) {
+      box.innerHTML = '<div class="fav-empty">هنوز بیتی رو قلب نکردی. توی لیست بیت‌ها روی ♥ بزن تا این‌جا بیاد.' +
+        '<br><button type="button" class="btn btn-ghost" data-library>برو سراغ بیت‌ها</button></div>';
+      return;
+    }
+    favs.forEach(function (b) {
+      var art = artFor(b), el = document.createElement("div");
+      el.className = "fav-card"; el.dataset.pick = b.id; el.tabIndex = 0; el.setAttribute("role", "button");
+      el.innerHTML = '<span class="fav-text"><b>' + esc(b.name) + "</b><small>" + esc(b.genre || "") +
+        (effBpm(b) ? " · " + fa(Math.round(effBpm(b))) + " BPM" : "") + "</small></span>" +
+        '<span class="fav-art" style="' + art.style + '">' + art.html +
+        '<button type="button" class="beat-play" data-preview="' + b.id + '" aria-label="پیش‌نمایش ' + esc(b.name) + '"><svg><use href="#i-play"/></svg></button></span>';
+      box.appendChild(el);
+    });
+    updatePreviewButtons();
   }
   function startDaily() {
     var info = dailyInfo();
@@ -285,7 +357,8 @@
     if (!m.wave) m.wave = QB.peaks(buf, 40);
     try { localStorage.setItem(metaKey(desc), JSON.stringify(m)); } catch (e) {}
     applyMeta(desc, m);
-    if (current === "setup") { renderBeats(); updateSummary(); }
+    if (current === "setup" || current === "more") { renderBeats(); updateSummary(); }
+    if (current === "home") renderHome();
   }
 
   /* optional shared library: beats/manifest.json (works when served over http).
@@ -357,12 +430,14 @@
   function renderLevels() {
     var box = $("#levelChips"); box.innerHTML = "";
     var cur = matchLevel();
-    Object.keys(QB.LEVELS).forEach(function (k) {
-      var L = QB.LEVELS[k];
-      var c = chip(L.label, QB.FILLS[L.fill].label + " · " + QB.SCHEMES[L.scheme].label, cur === k, { level: k });
-      c.classList.add("level-chip");
-      c.insertAdjacentHTML("beforeend", '<span class="scheme-viz">' + schemeBars(QB.SCHEMES[L.scheme].pattern) + "</span>");
-      box.appendChild(c);
+    Object.keys(QB.LEVELS).forEach(function (k, i) {
+      var L = QB.LEVELS[k], on = cur === k, b = document.createElement("button");
+      b.type = "button"; b.className = "level-card" + (on ? " is-on" : ""); b.dataset.level = k;
+      b.setAttribute("aria-pressed", on);
+      b.innerHTML = '<span class="lv-check"><svg><use href="#i-check"/></svg></span>' +
+        '<span class="lv-bars">' + [0, 1, 2, 3].map(function (n) { return '<i class="' + (n <= i ? "on" : "") + '"></i>'; }).join("") + "</span>" +
+        "<b>" + L.label + "</b><small>" + QB.FILLS[L.fill].label + " · " + QB.SCHEMES[L.scheme].label + "</small>";
+      box.appendChild(b);
     });
   }
   function renderSeg(id, items, val, key) {
@@ -411,6 +486,7 @@
     });
     $("#cleanToggle").checked = S.clean;
     $("#cleanToggle2").checked = S.clean;
+    updateSummary();
   }
   function renderLengths() {
     var box = $("#lengthChips"); box.innerHTML = "";
@@ -617,8 +693,8 @@
     $("#tapField").hidden = S.mode !== "tap";
     $("#lengthField").hidden = S.mode === "tap";
     $("#beatTitle").textContent = S.mode === "endless" ? "بیت اول (بقیه پشت‌سرش میان)" : "بیت";
-    // number the fields in visual order
-    $("#lengthField .field-num").textContent = fa(4);
+    $("#stepBeat").textContent = S.mode === "tap" ? "ضرب" : "بیت";
+    $("#rlBeatTitle").textContent = S.mode === "tap" ? "ضرب رو بزن" : S.mode === "endless" ? "بیت اول" : "انتخاب بیت";
     renderLevels(); renderAdvanced(); renderLists(); renderLengths(); renderBeats();
     $("#tapBpmInput").value = S.tapBpm;
     $("#tapBpm").textContent = fa(S.tapBpm);
@@ -631,7 +707,6 @@
     $(".rec-note").textContent = canRec
       ? "ویدیو فقط روی دستگاه خودت ساخته می‌شه و جایی آپلود نمی‌شه. با هدفون بهتر درمیاد."
       : "مرورگرت ضبط ویدیو رو پشتیبانی نمی‌کنه.";
-    $("#recField .field-num").textContent = fa(S.mode === "tap" ? 4 : 5);
     if (!matchLevel()) $("#advanced").open = true;
     updateSummary();
   }
@@ -646,7 +721,15 @@
     }
     if (S.scheme === "custom") parts.splice(1, 0, schemeLabel({ scheme: "custom", pattern: S.pattern }));
     if (holdLabel(+S.hold)) parts.push(holdLabel(+S.hold));
-    $("#summary").innerHTML = parts.map(function (p) { return "<span>" + esc(p) + "</span>"; }).join("");
+    $("#summary").innerHTML = "<span>" + esc(parts.slice(0, 2).join(" · ")) + "</span><span>" + esc(parts.slice(2).join(" · ")) + "</span>";
+    // step-1 rows show what's chosen on step 2
+    var wl = QB.WORD_LISTS[S.list];
+    $("#rlWords").textContent = (wl ? wl.label : "") + (S.clean ? " · حالت تمیز" : "");
+    var bb = findBeat(S.beat);
+    $("#rlBeat").textContent = S.mode === "tap" ? fa(S.tapBpm) + " BPM" : bb ? bb.name + (effBpm(bb) ? " · " + fa(Math.round(effBpm(bb))) + " BPM" : "") : "";
+    var adv = [S.mode === "classic" ? (S.bars === "full" ? "کل ترک" : fa(S.bars) + " بار") : S.mode === "endless" ? "هر " + fa(S.switchEvery) + " بار بیت عوض" : null,
+               S.rec ? "ضبط ویدیو" : null, matchLevel() ? null : "تنظیم دستی"].filter(Boolean);
+    $("#rlAdv").textContent = adv.length ? adv.join(" · ") : "تنظیم دستی، طول، حالت تمیز و ضبط";
   }
 
   /* ---------- previews ---------- */
@@ -868,7 +951,22 @@
     }).catch(function () { $("#startBtn").disabled = false; globalToast("فایل این بیت باز نشد"); });
   }
 
-  function quitGame() { if (game && game.running) game.finish(true); }
+  var paused = false;
+  function setPaused(on) {
+    if (!game || !game.running || paused === on) return;
+    paused = on;
+    var ctx = QB.audio.ctx;
+    if (on) { ctx.suspend(); QB.Recorder.pause && QB.Recorder.pause(); }
+    else { ctx.resume(); QB.Recorder.resume && QB.Recorder.resume(); }
+    $("#pausedLayer").hidden = !on;
+    $("#pauseBtn").innerHTML = '<svg><use href="#i-' + (on ? "play" : "pause") + '"/></svg>';
+    $("#pauseBtn").setAttribute("aria-label", on ? "ادامه" : "مکث");
+  }
+  function quitGame() {
+    if (!game || !game.running) return;
+    if (paused) setPaused(false);
+    game.finish(true);
+  }
 
   var CHEERS = [
     [0, "گرم شدی؟", "دوباره بزن"],
@@ -1012,14 +1110,39 @@
         S.beatFilter = "all"; S.beatMood = "all"; S.beatTempo = "all"; S.onlyFavs = false; beatQuery = "";
         $("#beatSearch").value = ""; save(); renderBeats(); return;
       }
-      var t = e.target.closest("[data-pline],[data-preset],[data-hold],[data-fav],[data-onlyfavs],[data-mood],[data-tempo],[data-layers],[data-skip],[data-bsreset],[data-bfilter],[data-go],[data-mode],[data-open],[data-level],[data-fill],[data-scheme],[data-speed],[data-list],[data-bars],[data-every],[data-preview],[data-del],[data-beat],[data-bpm],.theme-dot");
+      var t = e.target.closest("[data-genre],[data-library],[data-continue],[data-more],[data-pick],[data-pline],[data-preset],[data-hold],[data-fav],[data-onlyfavs],[data-mood],[data-tempo],[data-layers],[data-skip],[data-bsreset],[data-bfilter],[data-go],[data-mode],[data-open],[data-level],[data-fill],[data-scheme],[data-speed],[data-list],[data-bars],[data-every],[data-preview],[data-del],[data-beat],[data-bpm],.theme-dot");
       if (!t) return;
       var d = t.dataset;
+      if (d.genre) {
+        if (S.mode === "tap") S.mode = "classic";
+        S.beatFilter = d.genre; S.onlyFavs = false;
+        var cur = findBeat(S.beat);
+        if (!cur || cur.family !== d.genre) { var first = library.filter(function (b) { return b.family === d.genre; })[0]; if (first) S.beat = first.id; }
+        save(); renderSetup(); show("more", "#beatField"); return;
+      }
+      if (d.library != null) {
+        if (S.mode === "tap") S.mode = "classic";
+        if (d.library === "favs") { S.onlyFavs = true; S.beatFilter = "all"; }
+        save(); renderSetup(); show("more", "#beatField");
+        if (d.library === "search") setTimeout(function () { $("#beatSearch").focus(); }, 60);
+        return;
+      }
+      if (d.continue != null) { startGame(); return; }
+      if (d.more) {
+        if (d.more === "top") { show("setup"); return; }
+        show("more", d.more === "words" ? "#wordsField" : d.more === "beat" ? (S.mode === "tap" ? "#tapField" : "#beatField") : "#lengthField");
+        if (d.more === "adv") $("#advanced").open = true;
+        return;
+      }
+      if (d.pick && !e.target.closest("[data-preview]")) {
+        if (S.mode === "tap") S.mode = "classic";
+        S.beat = d.pick; save(); renderSetup(); show("setup"); return;
+      }
       if (d.fav) {
         e.stopPropagation();
         S.favs = (S.favs || []).filter(function (x) { return x !== d.fav; });
         if (t.getAttribute("aria-pressed") !== "true") S.favs.push(d.fav);
-        save(); renderBeats(); return;
+        save(); renderBeats(); renderFavs(); return;
       }
       if (d.onlyfavs) { S.onlyFavs = !S.onlyFavs; save(); renderBeats(); return; }
       if (d.mood) { S.beatMood = d.mood; save(); renderBeats(); return; }
@@ -1028,7 +1151,7 @@
       if (d.skip) { setBeatOpt(S.beat, "skip", d.skip === "auto" ? null : +d.skip); renderBeats(); restartPreviewIf(S.beat); return; }
       if (d.bsreset) { S.beatOpts && delete S.beatOpts[d.bsreset]; save(); renderBeats(); updateSummary(); restartPreviewIf(d.bsreset); return; }
       if (d.bfilter) { S.beatFilter = d.bfilter; save(); renderBeats(); return; }
-      if (d.go) { e.preventDefault(); if (game.running) game.stop(true); show(d.go); return; }
+      if (d.go) { e.preventDefault(); if (game.running) game.stop(true); if (d.go === "setup") renderSetup(); show(d.go); return; }
       if (d.mode && !t.closest(".setup")) { S.mode = d.mode; save(); renderSetup(); show("setup"); return; }
       if (d.open === "settings") { $("#settingsDlg").showModal(); return; }
       if (t.classList.contains("theme-dot")) { applyTheme(d.theme); return; }
@@ -1046,7 +1169,7 @@
       if (d.speed) { S.speed = +d.speed; save(); renderAdvanced(); return; }
       if (d.list) { S.list = d.list; save(); renderLists(); return; }
       if (d.bars) { S.bars = d.bars === "full" ? "full" : +d.bars; save(); renderLengths(); updateSummary(); return; }
-      if (d.every) { S.switchEvery = +d.every; save(); renderLengths(); return; }
+      if (d.every) { S.switchEvery = +d.every; save(); renderLengths(); updateSummary(); return; }
       if (d.bpm) { S.tapBpm = Math.min(200, Math.max(50, S.tapBpm + +d.bpm)); save(); $("#tapBpmInput").value = S.tapBpm; $("#tapBpm").textContent = fa(S.tapBpm); updateSummary(); return; }
       if (d.preview) { e.stopPropagation(); if (previewId === d.preview) stopPreview(); else startPreview(d.preview); return; }
       if (d.del) {
@@ -1066,11 +1189,11 @@
     });
     document.addEventListener("keydown", function (e) {
       if (e.key !== "Enter" && e.key !== " ") return;
-      var card = e.target.closest && e.target.closest(".beat-card");
+      var card = e.target.closest && e.target.closest(".beat-card,.fav-card");
       if (card && e.target === card) { e.preventDefault(); card.click(); }
     });
 
-    $("#cleanToggle").addEventListener("change", function (e) { S.clean = e.target.checked; save(); $("#cleanToggle2").checked = S.clean; });
+    $("#cleanToggle").addEventListener("change", function (e) { S.clean = e.target.checked; save(); $("#cleanToggle2").checked = S.clean; updateSummary(); });
     $("#cleanToggle2").addEventListener("change", function (e) { S.clean = e.target.checked; save(); $("#cleanToggle").checked = S.clean; });
     $("#clickToggle").addEventListener("change", function (e) { S.click = e.target.checked; save(); });
     // beat library: search, sort, random, per-beat tempo + auto half-time
@@ -1103,7 +1226,7 @@
       if (e.target.id === "bsAutoHalf") { S.autoHalf = e.target.checked; save(); }
     });
 
-    $("#recToggle").addEventListener("change", function (e) { S.rec = e.target.checked; save(); $("#camRow").hidden = !S.rec; });
+    $("#recToggle").addEventListener("change", function (e) { S.rec = e.target.checked; save(); $("#camRow").hidden = !S.rec; updateSummary(); });
     $("#camToggle").addEventListener("change", function (e) { S.cam = e.target.checked; save(); });
     $("#dailyBtn").addEventListener("click", startDaily);
     $("#dailyShare").addEventListener("click", shareDaily);
@@ -1240,6 +1363,10 @@
 
     $("#startBtn").addEventListener("click", function () { startGame(); });
     $("#quitBtn").addEventListener("click", quitGame);
+    $("#pauseBtn").addEventListener("click", function () { setPaused(!paused); });
+    $("#resumeBtn").addEventListener("click", function () { setPaused(false); });
+    document.addEventListener("visibilitychange", function () { if (document.hidden && current === "game") setPaused(true); });
+    window.addEventListener("scroll", onScroll, { passive: true });
     $("#replaySame").addEventListener("click", function () { if (lastResult) startGame(lastResult.gen, lastCfg); });
     $("#replayNew").addEventListener("click", function () {
       if (lastCfg) startGame();
@@ -1247,7 +1374,8 @@
     $("#toSetup").addEventListener("click", function () { renderSetup(); show("setup"); });
 
     document.addEventListener("keydown", function (e) {
-      if (current === "game" && (e.key === "Escape" || e.code === "Space")) { e.preventDefault(); quitGame(); }
+      if (current === "game" && e.key === "Escape") { e.preventDefault(); quitGame(); }
+      if (current === "game" && e.code === "Space") { e.preventDefault(); setPaused(!paused); }
     });
 
     // upload
@@ -1293,7 +1421,7 @@
     });
     loadManifest();
     renderSetup();
-    renderHome();
+    show("home");
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);

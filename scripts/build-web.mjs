@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const out = path.join(root, "www");
-const INCLUDE = ["index.html", "privacy.html", "manifest.webmanifest", "css", "js", "fonts", "icons", "beats"];
+const INCLUDE = ["index.html", "privacy.html", "manifest.webmanifest", "css", "js", "fonts", "icons", "img", "beats"];
 
 fs.rmSync(out, { recursive: true, force: true });
 fs.mkdirSync(out, { recursive: true });

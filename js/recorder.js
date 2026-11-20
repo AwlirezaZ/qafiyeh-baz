@@ -97,6 +97,9 @@
       return true;
     },
 
+    pause: function () { try { if (this.rec && this.rec.state === "recording") this.rec.pause(); } catch (e) {} },
+    resume: function () { try { if (this.rec && this.rec.state === "paused") this.rec.resume(); } catch (e) {} },
+
     /* stop after a short tail; resolves with { blob, url, ext, mime } */
     stop: function () {
       var self = this;

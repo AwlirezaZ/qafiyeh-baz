@@ -159,6 +159,8 @@ Shared-library MP3s can join a genre filter by adding `"family": "boombap"` (etc
 
 - Fonts (Vazirmatn, Lalezar, Reem Kufi — SIL Open Font License) are bundled in `fonts/` and declared in
   `css/fonts.css`; arabic + latin subsets only, ~180 KB total. No requests go to Google or any other server.
+- The default **street** theme (the Figma redesign) uses Peyda + Abar FaNum (licensed, see CREDITS.md), the photos in `img/`, and
+  the logo mark `img/logo-mark.png`. The older themes (poster, cassette, neon) are still in Settings → تم.
 - Timing is driven by the Web Audio clock (not timers), so the ball stays locked to the beat.
 
 ## Android app (Cafe Bazaar)

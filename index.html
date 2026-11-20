@@ -1,13 +1,14 @@
 <!doctype html>
-<html lang="fa" dir="rtl" data-theme="poster">
+<html lang="fa" dir="rtl" data-theme="street">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>قافیه‌باز — بازی فری‌استایل رپ</title>
   <meta name="description" content="قافیه‌ها رو روی ضرب بهت می‌ده؛ تو فقط پرش کن. بازی تمرین فری‌استایل رپ فارسی.">
-  <meta name="theme-color" content="#0f0f0e">
+  <meta name="theme-color" content="#0a0a0b">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png" media="(prefers-color-scheme: dark)">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-light-32.png" media="(prefers-color-scheme: light)">
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -26,67 +27,83 @@
   <meta property="og:locale" content="fa_IR">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:image" content="https://awlirezaz.github.io/qafiyeh-baz/icons/og.png">
-  <link rel="preload" href="fonts/vazirmatn-arabic-4.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="fonts/lalezar-arabic-0.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/Peyda-ExtraBold.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="preload" href="fonts/Peyda-Regular.ttf" as="font" type="font/ttf" crossorigin>
   <link rel="stylesheet" href="css/fonts.css">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">
     <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15l12.5-7.5z" fill="currentColor"/></symbol>
-    <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" fill="currentColor"/></symbol>
-    <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.4" stroke-linecap="square" fill="none"/></symbol>
-    <symbol id="i-gear" viewBox="0 0 24 24"><path d="M12 8.5a3.5 3.5 0 100 7 3.5 3.5 0 000-7z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></symbol>
-    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4M6.5 9.5L12 4l5.5 5.5M4 20h16" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="square"/></symbol>
-    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13" stroke="currentColor" stroke-width="2" fill="none"/></symbol>
-    <symbol id="i-back" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="square"/></symbol>
-    <symbol id="i-redo" viewBox="0 0 24 24"><path d="M19 12a7 7 0 11-2.05-4.95M19 4v4h-4" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="square"/></symbol>
-    <symbol id="i-shuffle" viewBox="0 0 24 24"><path d="M4 7h3.5c4 0 5 10 9 10H20M4 17h3.5c1.6 0 2.7-1.6 3.6-3.6M13 9.6C13.9 8 15 7 16.5 7H20M17 4l3 3-3 3M17 14l3 3-3 3" stroke="currentColor" stroke-width="2" fill="none"/></symbol>
-    <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor"/><path d="M6 11a6 6 0 0012 0M12 17v4" stroke="currentColor" stroke-width="2" fill="none"/></symbol>
+    <symbol id="i-playrtl" viewBox="0 0 24 24"><path d="M17 4.5v15L4.5 12z" fill="currentColor"/></symbol>
+    <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5" fill="currentColor"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6" y="4.5" width="4" height="15" rx="1.2" fill="currentColor"/><rect x="14" y="4.5" width="4" height="15" rx="1.2" fill="currentColor"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" fill="none"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M10.3 2h3.4l.5 2.6c.6.2 1.2.5 1.7.9l2.5-.9 1.7 2.9-2 1.8c.1.6.1 1.3 0 1.9l2 1.8-1.7 2.9-2.5-.9c-.5.4-1.1.7-1.7.9l-.5 2.6h-3.4l-.5-2.6c-.6-.2-1.2-.5-1.7-.9l-2.5.9-1.7-2.9 2-1.8a6 6 0 010-1.9l-2-1.8 1.7-2.9 2.5.9c.5-.4 1.1-.7 1.7-.9zM12 8.6a3.4 3.4 0 100 6.8 3.4 3.4 0 000-6.8z" transform="translate(0 1)"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4M6.5 9.5L12 4l5.5 5.5M4 20h16" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-chev" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" stroke="currentColor" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-redo" viewBox="0 0 24 24"><path d="M19 12a7 7 0 11-2.05-4.95M19 4v4h-4" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M4.5 10.5A7.6 7.6 0 0118 7.2M19.5 13.5A7.6 7.6 0 016 16.8" stroke="currentColor" stroke-width="2.6" fill="none" stroke-linecap="round"/><path d="M19.6 3.6v5h-5zM4.4 20.4v-5h5z" fill="currentColor"/></symbol>
+    <symbol id="i-shuffle" viewBox="0 0 24 24"><path d="M4 7h3.5c4 0 5 10 9 10H20M4 17h3.5c1.6 0 2.7-1.6 3.6-3.6M13 9.6C13.9 8 15 7 16.5 7H20M17 4l3 3-3 3M17 14l3 3-3 3" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor"/><path d="M6 11a6 6 0 0012 0M12 17v4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></symbol>
     <symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 2c1 3.5 5.5 6 5.5 11a5.5 5.5 0 01-11 0c0-2.6 1.3-4.3 2.6-5.6.2 1.8.9 3 2.1 3.6C11.4 8.5 11 5.5 12 2z" fill="currentColor"/></symbol>
-    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M6.5 10.5L12 16l5.5-5.5M4 20h16" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="square"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M6.5 10.5L12 16l5.5-5.5M4 20h16" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-share" viewBox="0 0 24 24"><circle cx="18" cy="5" r="2.6" fill="currentColor"/><circle cx="6" cy="12" r="2.6" fill="currentColor"/><circle cx="18" cy="19" r="2.6" fill="currentColor"/><path d="M8.3 10.8l7.4-4.4M8.3 13.2l7.4 4.4" stroke="currentColor" stroke-width="2"/></symbol>
     <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20.5s-7.5-4.4-7.5-10A4.3 4.3 0 0112 7.6a4.3 4.3 0 017.5 2.9c0 5.6-7.5 10-7.5 10z" fill="currentColor"/></symbol>
-    <symbol id="i-dice" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="8.5" cy="8.5" r="1.6" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="15.5" cy="8.5" r="1.6" fill="currentColor"/><circle cx="8.5" cy="15.5" r="1.6" fill="currentColor"/></symbol>
-    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M15 15l5 5" stroke="currentColor" stroke-width="2.4" stroke-linecap="square"/></symbol>
-    <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14" stroke="currentColor" stroke-width="2.4"/></symbol>
-    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14" stroke="currentColor" stroke-width="2.4"/></symbol>
+    <symbol id="i-dice" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="4" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="8.5" cy="8.5" r="1.6" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="15.5" cy="8.5" r="1.6" fill="currentColor"/><circle cx="8.5" cy="15.5" r="1.6" fill="currentColor"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="13" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2.6"/><path d="M8.3 15.4L3.5 20.2" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+    <symbol id="i-radio" viewBox="0 0 24 24"><path d="M5 8.5L17.5 3.6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><rect x="2.5" y="8" width="19" height="13" rx="3.5" fill="currentColor"/><circle cx="15.8" cy="14.5" r="2.8" fill="var(--icon-hole, #000)"/><rect x="5.6" y="11.6" width="5.6" height="2" rx="1" fill="var(--icon-hole, #000)"/><rect x="5.6" y="15.4" width="5.6" height="2" rx="1" fill="var(--icon-hole, #000)"/></symbol>
+    <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13.5 2L5 13.5h6L9.5 22 19 10h-6.2z" fill="currentColor"/></symbol>
+    <symbol id="i-inf" viewBox="0 0 24 24"><path d="M12 12c-2-2.6-3.6-4.2-6-4.2a4.2 4.2 0 000 8.4c2.4 0 4-1.6 6-4.2zm0 0c2 2.6 3.6 4.2 6 4.2a4.2 4.2 0 000-8.4c-2.4 0-4 1.6-6 4.2z" stroke="currentColor" stroke-width="2.8" fill="none"/></symbol>
+    <symbol id="i-tag" viewBox="0 0 24 24"><path d="M3.5 12.6V4.5a1 1 0 011-1h8.1l8 8a1.4 1.4 0 010 2l-7 7a1.4 1.4 0 01-2 0z" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round"/><circle cx="8" cy="8" r="1.6" fill="currentColor"/></symbol>
+    <symbol id="i-note" viewBox="0 0 24 24"><path d="M9 18V5.5l10-2V16" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round"/><ellipse cx="6.5" cy="18" rx="2.8" ry="2.3" fill="currentColor"/><ellipse cx="16.5" cy="16" rx="2.8" ry="2.3" fill="currentColor"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="15" cy="7" r="2.2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="17" r="2.2" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5.5 12.5l4.2 4.2 8.8-9.2" stroke="currentColor" stroke-width="2.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-cassette" viewBox="0 0 48 48"><rect x="5" y="10" width="38" height="28" rx="5" fill="none" stroke="currentColor" stroke-width="3"/><rect x="12" y="16" width="24" height="10" rx="3" fill="none" stroke="currentColor" stroke-width="3"/><circle cx="18" cy="21" r="2.5" fill="currentColor"/><circle cx="30" cy="21" r="2.5" fill="currentColor"/><path d="M13 38l3-6h16l3 6" stroke="currentColor" stroke-width="3" fill="none" stroke-linejoin="round"/></symbol>
+    <symbol id="i-santur" viewBox="0 0 48 48"><path d="M6 34L14 12h20l8 22z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/><path d="M12 18h24M10 24h28M8 30h32" stroke="currentColor" stroke-width="2"/><path d="M20 40l8-10M30 42l4-12" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></symbol>
+    <symbol id="i-mouth" viewBox="0 0 48 48"><rect x="18" y="5" width="12" height="20" rx="6" fill="currentColor"/><path d="M11 21a13 13 0 0026 0M24 34v8M17 42h14" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M6 14c-2 4-2 8 0 12M42 14c2 4 2 8 0 12" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round"/></symbol>
+    <symbol id="i-wave" viewBox="0 0 48 48"><path d="M6 24h3M12 16v16M18 10v28M24 18v12M30 8v32M36 14v20M42 22v4" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M3 9.5h18a9 9 0 01-18 0z" fill="currentColor"/></symbol>
+  </svg>
+  <!-- paint drips under the street theme's pill buttons -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="drips" viewBox="0 0 200 40" preserveAspectRatio="none"><path d="M0 0h200v3c-6 0-8 2-9 6-1 5-3 7-6 7s-5-2-5-7c0-3-3-6-10-6-8 0-9 3-10 9-1 9-3 15-7 15s-6-6-6-15c0-6-3-9-12-9s-11 3-11 8c0 3-2 5-4 5s-4-2-4-5c0-6-4-8-12-8s-11 4-12 12c-1 10-3 18-7 18s-6-8-6-18c0-8-4-12-12-12-9 0-11 3-12 7-1 3-3 5-5 5s-4-2-4-6c0-4-3-6-8-6z" fill="currentColor"/></symbol>
   </svg>
 
   <div class="grain" aria-hidden="true"></div>
+  <div class="page-photo" aria-hidden="true"></div>
 
   <!-- ============ HOME ============ -->
   <section class="screen is-active" data-screen="home">
-    <header class="topbar">
-      <a class="brand" href="#" data-go="home"><span class="brand-mark">ق</span><span>قافیه‌باز</span></a>
+    <div class="hero-photo" aria-hidden="true"></div>
+    <header class="topbar home-top">
+      <button class="streak-chip" data-go="stats" aria-label="آمار و زنجیره"><b id="streakNum">۰</b><span>روز</span><svg class="moon"><use href="#i-moon"/></svg></button>
+      <img class="top-logo" src="img/logo-mark.png" alt="" aria-hidden="true" width="48" height="56">
       <div class="topbar-actions">
         <button class="install-btn" id="installBtn" hidden><svg><use href="#i-download"/></svg><span>نصب اپ</span></button>
-        <button class="streak-chip" data-go="stats" aria-label="آمار و زنجیره"><svg><use href="#i-flame"/></svg><b id="streakNum">۰</b></button>
-        <div class="theme-dots" role="radiogroup" aria-label="تم"></div>
-        <button class="icon-btn" data-open="settings" aria-label="تنظیمات"><svg><use href="#i-gear"/></svg></button>
+        <button class="icon-btn round" data-open="settings" aria-label="تنظیمات"><svg><use href="#i-gear"/></svg></button>
       </div>
     </header>
 
     <main class="home">
       <div class="hero">
-        <p class="kicker">بازی تمرین فری‌استایل رپ</p>
-        <h1 class="hero-title"><span class="ink" data-text="قافیه‌باز">قافیه‌باز</span></h1>
-        <p class="lead">ضرب رو بگیر، قافیه رو ما می‌دیم.<br>تو فقط خالی‌های بینش رو پر کن.</p>
-        <div class="hero-cta">
-          <button class="btn btn-primary btn-xl" data-mode="classic"><svg><use href="#i-play"/></svg>شروع کن</button>
-          <a class="btn btn-ghost" href="#how">چطوری بازی کنم؟</a>
-        </div>
-        <div class="sticker" aria-hidden="true"><b>۱۸</b> بیت اورجینال<br><small>+ بیت خودت</small></div>
+        <h1 class="hero-logo"><img src="img/logo-mark.png" alt="قافیه‌باز" width="429" height="502"></h1>
+        <p class="lead">ضرب رو بگیر، قافیه رو ما می‌دیم.</p>
+        <button class="btn btn-primary btn-xl drip" data-mode="classic"><svg class="i-start"><use href="#i-play"/></svg><span>شروع بازی</span><svg class="drips" aria-hidden="true"><use href="#drips"/></svg></button>
       </div>
 
-      <div class="hero-demo" aria-hidden="true">
-        <div class="demo-grid">
-          <div class="demo-row"><span></span><span></span><span></span><span class="w c0">بهار</span></div>
-          <div class="demo-row on"><span></span><span></span><span></span><span class="w c0">قرار</span><i class="demo-ball"></i></div>
-          <div class="demo-row"><span></span><span></span><span></span><span class="w c1">سکوت</span></div>
-          <div class="demo-row"><span></span><span></span><span></span><span class="w c1">بیروت</span></div>
-        </div>
-      </div>
+      <section class="home-sec" id="continueSec" hidden>
+        <h2 class="sec-head"><button type="button" data-continue><span>ادامه بده</span><svg><use href="#i-chev"/></svg></button></h2>
+        <button type="button" class="continue-card" data-continue>
+          <span class="cc-icon"><svg><use href="#i-refresh"/></svg></span>
+          <span class="cc-text"><b id="ccName">—</b><small id="ccMeta"></small></span>
+          <span class="cc-art" id="ccArt"></span>
+        </button>
+      </section>
 
       <section class="daily" id="dailyCard" aria-label="چالش امروز">
         <div class="daily-tag"><span>چالش امروز</span><b id="dailyDate"></b></div>
@@ -99,31 +116,20 @@
         </div>
       </section>
 
-      <section class="modes" aria-label="حالت‌های بازی">
-        <h2 class="section-title"><span>سه جور بازی</span></h2>
-        <div class="mode-list">
-          <button class="mode-card" data-mode="classic">
-            <span class="mode-num">۰۱</span>
-            <span class="mode-name">کلاسیک</span>
-            <span class="mode-desc">یه بیت، چند بار مشخص، آخرش کارنامه.</span>
-          </button>
-          <button class="mode-card" data-mode="endless">
-            <span class="mode-num">۰۲</span>
-            <span class="mode-name">بی‌پایان</span>
-            <span class="mode-desc">بیت‌ها پشت‌سرهم عوض می‌شن. تا نفس داری بخون.</span>
-          </button>
-          <button class="mode-card" data-mode="tap">
-            <span class="mode-num">۰۳</span>
-            <span class="mode-name">تپ</span>
-            <span class="mode-desc">با هر آهنگی که دور و برت پخش می‌شه. ضرب رو بزن، بازی می‌چسبه بهش.</span>
-          </button>
-        </div>
+      <section class="home-sec">
+        <h2 class="sec-head"><button type="button" data-library><span>سبک‌ها</span><svg><use href="#i-chev"/></svg></button></h2>
+        <div class="genre-row" id="genreRow"></div>
+      </section>
+
+      <section class="home-sec">
+        <h2 class="sec-head"><button type="button" data-library="favs"><span>موردعلاقه‌ها</span><svg><use href="#i-chev"/></svg></button></h2>
+        <div class="fav-row" id="favRow"></div>
       </section>
 
       <section class="how" id="how">
-        <h2 class="section-title"><span>چطوری؟</span></h2>
+        <h2 class="section-title"><span>چطوری بازی کنم؟</span></h2>
         <ol class="steps">
-          <li><b>بیت رو انتخاب کن</b><span>از بیت‌های خودمون، یا فایل MP3 خودت رو بنداز.</span></li>
+          <li><b>بیت رو انتخاب کن</b><span>از ۱۸ بیت خودمون، یا فایل MP3 خودت رو بنداز.</span></li>
           <li><b>توپ رو دنبال کن</b><span>هر پرش یه ضربه‌ست. هر خط چهار ضرب داره.</span></li>
           <li><b>قافیه رو روی ضرب چهارم بکوب</b><span>سه ضرب اول مال توئه؛ هر چی به ذهنت رسید بگو، فقط سر وقت برس به کلمه.</span></li>
         </ol>
@@ -140,130 +146,182 @@
         <span>بدون ثبت‌نام · بدون سرور · صدات جایی نمی‌ره · <a href="https://github.com/AwlirezaZ/qafiyeh-baz/blob/main/CREDITS.md" target="_blank" rel="noopener">اعتبار بیت‌ها و فونت‌ها</a> · <a href="privacy.html">حریم خصوصی</a></span>
       </footer>
     </main>
+
+    <!-- visual order (RTL): search · endless · tap · classic -->
+    <nav class="bottom-nav" aria-label="حالت‌های بازی">
+      <button type="button" class="nav-btn nav-search" data-library="search" aria-label="جستجوی بیت"><svg><use href="#i-search"/></svg></button>
+      <button type="button" class="nav-btn" data-mode="endless"><svg><use href="#i-inf"/></svg><span>بی‌پایان</span></button>
+      <button type="button" class="nav-btn" data-mode="tap"><svg><use href="#i-bolt"/></svg><span>ضرب‌گیری</span></button>
+      <button type="button" class="nav-btn" data-mode="classic"><svg><use href="#i-radio"/></svg><span>کلاسیک</span></button>
+    </nav>
   </section>
 
-  <!-- ============ SETUP ============ -->
+  <!-- ============ SETUP (step 1: level) ============ -->
   <section class="screen" data-screen="setup">
-    <header class="topbar">
-      <button class="icon-btn" data-go="home" aria-label="برگشت"><svg><use href="#i-back"/></svg></button>
-      <h2 class="setup-title" id="setupTitle">بازی کلاسیک</h2>
-      <button class="icon-btn" data-open="settings" aria-label="تنظیمات"><svg><use href="#i-gear"/></svg></button>
+    <header class="topbar page-top">
+      <button class="icon-btn round" data-go="home" aria-label="برگشت"><svg><use href="#i-back"/></svg></button>
+      <div class="page-title"><h2 class="setup-title" id="setupTitle">بازی کلاسیک</h2><p>سطح خودت رو انتخاب کن</p></div>
+      <img class="page-logo" src="img/logo-mark.png" alt="" aria-hidden="true" width="40" height="47">
     </header>
 
     <main class="setup">
-      <div class="setup-col">
-        <div class="field">
-          <div class="field-head"><span class="field-num">۱</span><h3>سطح</h3></div>
-          <div class="chips" id="levelChips"></div>
-          <details class="advanced" id="advanced">
-            <summary>تنظیم دستی</summary>
-            <div class="adv-body">
-              <div class="adv-row"><label>چندتا کلمه ببینم؟</label><div class="seg" id="fillSeg"></div></div>
-              <div class="adv-row"><label>کدوم خط‌ها هم‌قافیه باشن؟</label><div class="seg" id="schemeSeg"></div></div>
-              <div class="adv-row" id="customRow" hidden>
-                <label>الگوی خودت — روی هر خط بزن تا عوض شه (الف ← ب ← ج ← بی‌قافیه)</label>
-                <div class="pattern-edit" id="patternEdit"></div>
-              </div>
-              <div class="adv-row"><label>قافیه هر چند بار عوض شه؟</label><div class="seg" id="holdSeg"></div>
-                <small class="adv-hint" id="holdHint"></small></div>
-              <div class="adv-row"><label>سرعت توپ</label><div class="seg" id="speedSeg"></div></div>
-            </div>
-          </details>
-        </div>
-
-        <div class="field">
-          <div class="field-head"><span class="field-num">۲</span><h3>کلمه‌ها</h3></div>
-          <div class="chips" id="listChips"></div>
-          <label class="toggle"><input type="checkbox" id="cleanToggle"><span class="toggle-ui"></span><span>حالت تمیز <small>(بدون کلمه‌های بزرگسالانه)</small></span></label>
-        </div>
-
-        <div class="field" id="lengthField">
-          <div class="field-head"><span class="field-num">۴</span><h3 id="lengthTitle">طول</h3></div>
-          <div class="chips" id="lengthChips"></div>
-        </div>
-
-        <div class="field" id="recField">
-          <div class="field-head"><span class="field-num">۵</span><h3>ضبط</h3></div>
-          <label class="toggle"><input type="checkbox" id="recToggle"><span class="toggle-ui"></span><span>ضبط ویدیو <small>(برای استوری و تلگرام)</small></span></label>
-          <label class="toggle" id="camRow"><input type="checkbox" id="camToggle"><span class="toggle-ui"></span><span>با دوربین سلفی</span></label>
-          <p class="note rec-note">ویدیو فقط روی دستگاه خودت ساخته می‌شه و جایی آپلود نمی‌شه. با هدفون بهتر درمیاد.</p>
-        </div>
-      </div>
-
-      <div class="setup-col">
-        <div class="field" id="beatField">
-          <div class="field-head"><span class="field-num">۳</span><h3 id="beatTitle">بیت</h3></div>
-          <div class="beat-tools">
-            <label class="beat-search"><svg><use href="#i-search"/></svg><input type="search" id="beatSearch" placeholder="جستجو: اسم، سبک، حس، تهیه‌کننده…" aria-label="جستجوی بیت"></label>
-            <select id="beatSort" aria-label="مرتب‌سازی">
-              <option value="suggested">پیشنهادی</option><option value="played">بیشترین بازی</option><option value="new">جدیدترین</option>
-              <option value="fast">تندترین</option><option value="slow">آروم‌ترین</option><option value="name">اسم</option>
-            </select>
-            <button type="button" class="icon-btn" id="beatRandom" aria-label="یه بیت تصادفی" title="تصادفی"><svg><use href="#i-dice"/></svg></button>
-          </div>
-          <div class="chips beat-filter" id="beatFilter" role="group" aria-label="سبک بیت"></div>
-          <div class="chips beat-filter" id="beatMoods" role="group" aria-label="حال‌وهوا، سرعت و علاقه‌مندی‌ها"></div>
-          <p class="beat-count" id="beatCount" aria-live="polite"></p>
-          <div class="beat-list" id="beatList"></div>
-          <p class="note endless-note" id="endlessNote" hidden></p>
-          <div class="mine-head" id="mineHead" hidden><h4>بیت‌های من</h4></div>
-          <div class="beat-list" id="mineList"></div>
-          <label class="upload-card">
-            <input type="file" id="fileInput" accept="audio/*,.mp3,.wav,.m4a,.ogg">
-            <svg><use href="#i-upload"/></svg>
-            <span><b>بیت خودت رو بیار</b><small>MP3، WAV یا M4A — سرعت (BPM) رو خودمون پیدا می‌کنیم</small></span>
-          </label>
-        </div>
-
-        <div class="field" id="tapField" hidden>
-          <div class="field-head"><span class="field-num">۳</span><h3>ضرب رو بزن</h3></div>
-          <p class="note">آهنگ رو پخش کن (از هر جا)، بعد با ضربش این‌جا رو بزن. حداقل چهار بار.</p>
-          <button class="tap-pad" id="tapPad"><span class="tap-bpm" id="tapBpm">—</span><span class="tap-label" id="tapLabel">بزن</span></button>
-          <div class="tap-tools">
-            <div class="stepper">
-              <button class="icon-btn sm" data-bpm="-1" aria-label="کمتر"><svg><use href="#i-minus"/></svg></button>
-              <input type="number" id="tapBpmInput" min="50" max="200" step="1" inputmode="numeric" aria-label="BPM">
-              <button class="icon-btn sm" data-bpm="1" aria-label="بیشتر"><svg><use href="#i-plus"/></svg></button>
-              <span class="unit">BPM</span>
-            </div>
-            <label class="toggle"><input type="checkbox" id="clickToggle"><span class="toggle-ui"></span><span>صدای مترونوم</span></label>
-          </div>
-        </div>
+      <ol class="stepper" aria-label="مراحل">
+        <li class="is-on"><button type="button" data-more="top"><b>۱</b><span>سطح</span></button></li>
+        <li><button type="button" data-more="words"><b>۲</b><span>کلمه‌ها</span></button></li>
+        <li><button type="button" data-more="beat"><b>۳</b><span id="stepBeat">بیت</span></button></li>
+      </ol>
+      <div class="levels" id="levelChips"></div>
+      <div class="row-links">
+        <button type="button" class="row-link" data-more="words">
+          <svg class="rl-icon"><use href="#i-tag"/></svg>
+          <span class="rl-text"><b>دسته‌بندی کلمه‌ها</b><small id="rlWords"></small></span>
+          <svg class="rl-chev"><use href="#i-chev"/></svg>
+        </button>
+        <button type="button" class="row-link" data-more="beat">
+          <svg class="rl-icon"><use href="#i-note"/></svg>
+          <span class="rl-text"><b id="rlBeatTitle">انتخاب بیت</b><small id="rlBeat"></small></span>
+          <svg class="rl-chev"><use href="#i-chev"/></svg>
+        </button>
+        <button type="button" class="row-link" data-more="adv">
+          <svg class="rl-icon"><use href="#i-sliders"/></svg>
+          <span class="rl-text"><b>تنظیمات پیشرفته</b><small id="rlAdv">تنظیم دستی، طول، حالت تمیز و ضبط</small></span>
+          <svg class="rl-chev"><use href="#i-chev"/></svg>
+        </button>
       </div>
     </main>
 
     <div class="startbar">
+      <button class="btn btn-primary btn-lg drip" id="startBtn"><svg class="i-start"><use href="#i-play"/></svg><span>بزن بریم</span><svg class="drips" aria-hidden="true"><use href="#drips"/></svg></button>
       <div class="startbar-summary" id="summary"></div>
-      <button class="btn btn-primary btn-lg" id="startBtn"><svg><use href="#i-play"/></svg>بزن بریم</button>
+    </div>
+  </section>
+
+  <!-- ============ MORE (step 2–3: words, beat and everything else) ============ -->
+  <section class="screen" data-screen="more">
+    <header class="topbar page-top">
+      <button class="icon-btn round" data-go="setup" aria-label="برگشت"><svg><use href="#i-back"/></svg></button>
+      <div class="page-title"><h2 class="setup-title">تنظیمات بازی</h2><p>کلمه‌ها، بیت و گزینه‌های بیشتر</p></div>
+      <img class="page-logo" src="img/logo-mark.png" alt="" aria-hidden="true" width="40" height="47">
+    </header>
+
+    <main class="more">
+      <div class="field" id="wordsField">
+        <div class="field-head"><h3>کلمه‌ها</h3></div>
+        <div class="chips cards2" id="listChips"></div>
+        <label class="toggle"><input type="checkbox" id="cleanToggle"><span class="toggle-ui"></span><span>حالت تمیز <small>(بدون کلمه‌های بزرگسالانه)</small></span></label>
+      </div>
+
+      <div class="field" id="lengthField">
+        <div class="field-head"><h3 id="lengthTitle">طول</h3></div>
+        <div class="chips" id="lengthChips"></div>
+      </div>
+
+      <div class="field" id="recField">
+        <div class="field-head"><h3>ضبط</h3></div>
+        <label class="toggle"><input type="checkbox" id="recToggle"><span class="toggle-ui"></span><span>ضبط ویدیو <small>(برای استوری و تلگرام)</small></span></label>
+        <label class="toggle" id="camRow"><input type="checkbox" id="camToggle"><span class="toggle-ui"></span><span>با دوربین سلفی</span></label>
+        <p class="note rec-note">ویدیو فقط روی دستگاه خودت ساخته می‌شه و جایی آپلود نمی‌شه. با هدفون بهتر درمیاد.</p>
+      </div>
+
+      <div class="field" id="beatField">
+        <div class="field-head"><h3 id="beatTitle">بیت</h3></div>
+        <div class="beat-tools">
+          <button type="button" class="icon-btn" id="beatRandom" aria-label="یه بیت تصادفی" title="تصادفی"><svg><use href="#i-dice"/></svg></button>
+          <select id="beatSort" aria-label="مرتب‌سازی">
+            <option value="suggested">پیشنهادی</option><option value="played">بیشترین بازی</option><option value="new">جدیدترین</option>
+            <option value="fast">تندترین</option><option value="slow">آروم‌ترین</option><option value="name">اسم</option>
+          </select>
+          <label class="beat-search"><svg><use href="#i-search"/></svg><input type="search" id="beatSearch" placeholder="جستجو: اسم، سبک، حس، تهیه‌کننده…" aria-label="جستجوی بیت"></label>
+        </div>
+        <div class="chips beat-filter" id="beatFilter" role="group" aria-label="سبک بیت"></div>
+        <div class="chips beat-filter" id="beatMoods" role="group" aria-label="حال‌وهوا، سرعت و علاقه‌مندی‌ها"></div>
+        <p class="beat-count" id="beatCount" aria-live="polite"></p>
+        <div class="beat-list" id="beatList"></div>
+        <p class="note endless-note" id="endlessNote" hidden></p>
+        <div class="mine-head" id="mineHead" hidden><h4>بیت‌های من</h4></div>
+        <div class="beat-list" id="mineList"></div>
+        <label class="upload-card">
+          <input type="file" id="fileInput" accept="audio/*,.mp3,.wav,.m4a,.ogg">
+          <svg><use href="#i-upload"/></svg>
+          <span><b>بیت خودت رو بیار</b><small>MP3، WAV یا M4A — سرعت (BPM) رو خودمون پیدا می‌کنیم</small></span>
+        </label>
+      </div>
+
+      <div class="field" id="tapField" hidden>
+        <div class="field-head"><h3>ضرب رو بزن</h3></div>
+        <p class="note">آهنگ رو پخش کن (از هر جا)، بعد با ضربش این‌جا رو بزن. حداقل چهار بار.</p>
+        <button class="tap-pad" id="tapPad"><span class="tap-bpm" id="tapBpm">—</span><span class="tap-label" id="tapLabel">بزن</span></button>
+        <div class="tap-tools">
+          <div class="stepper-num">
+            <button class="icon-btn sm" data-bpm="-1" aria-label="کمتر"><svg><use href="#i-minus"/></svg></button>
+            <input type="number" id="tapBpmInput" min="50" max="200" step="1" inputmode="numeric" aria-label="BPM">
+            <button class="icon-btn sm" data-bpm="1" aria-label="بیشتر"><svg><use href="#i-plus"/></svg></button>
+            <span class="unit">BPM</span>
+          </div>
+          <label class="toggle"><input type="checkbox" id="clickToggle"><span class="toggle-ui"></span><span>صدای مترونوم</span></label>
+        </div>
+      </div>
+
+      <details class="advanced" id="advanced">
+        <summary>تنظیم دستی</summary>
+        <div class="adv-body">
+          <div class="adv-row"><label>چندتا کلمه ببینم؟</label><div class="seg" id="fillSeg"></div></div>
+          <div class="adv-row"><label>کدوم خط‌ها هم‌قافیه باشن؟</label><div class="seg" id="schemeSeg"></div></div>
+          <div class="adv-row" id="customRow" hidden>
+            <label>الگوی خودت — روی هر خط بزن تا عوض شه (الف ← ب ← ج ← بی‌قافیه)</label>
+            <div class="pattern-edit" id="patternEdit"></div>
+          </div>
+          <div class="adv-row"><label>قافیه هر چند بار عوض شه؟</label><div class="seg" id="holdSeg"></div>
+            <small class="adv-hint" id="holdHint"></small></div>
+          <div class="adv-row"><label>سرعت توپ</label><div class="seg" id="speedSeg"></div></div>
+        </div>
+      </details>
+    </main>
+
+    <div class="startbar">
+      <button class="btn btn-primary btn-lg" data-go="setup">تأیید تنظیمات</button>
     </div>
   </section>
 
   <!-- ============ GAME ============ -->
   <section class="screen" data-screen="game">
+    <div class="game-photo" aria-hidden="true"></div>
     <header class="game-top">
-      <button class="icon-btn" id="quitBtn" aria-label="پایان"><svg><use href="#i-close"/></svg></button>
-      <div class="now-playing">
-        <span class="np-name" id="npName">—</span>
-        <span class="np-meta" id="npMeta"></span>
-      </div>
       <div class="counter"><span class="rec-dot" id="recDot" hidden>REC</span><span id="barNow">۰۰</span><small id="barTotal"></small></div>
+      <img class="game-logo" src="img/logo-mark.png" alt="" aria-hidden="true" width="48" height="56">
+      <span class="scheme-legend" id="schemeLegend"></span>
     </header>
     <div class="progress"><i id="progressFill"></i></div>
     <div class="stage">
-      <div class="scheme-legend" id="schemeLegend"></div>
       <div class="grid" id="grid"></div>
-      <div class="meter" id="meter" aria-hidden="true"></div>
     </div>
-    <p class="game-hint" id="gameHint">توپ رو دنبال کن — قافیه رو روی ضرب چهارم بکوب</p>
+    <div class="game-dock">
+      <div class="game-ctrls">
+        <button class="btn btn-quit drip" id="quitBtn" aria-label="پایان بازی"><span>پایان</span><svg class="drips" aria-hidden="true"><use href="#drips"/></svg></button>
+        <button class="icon-btn round pause-btn" id="pauseBtn" aria-label="مکث"><svg><use href="#i-pause"/></svg></button>
+      </div>
+      <div class="np-card">
+        <div class="meter" id="meter" aria-hidden="true"></div>
+        <div class="now-playing">
+          <span class="np-name" id="npName">—</span>
+          <span class="np-meta" id="npMeta"></span>
+        </div>
+      </div>
+      <p class="game-hint" id="gameHint">توپ رو دنبال کن — قافیه رو روی ضرب چهارم بکوب</p>
+    </div>
+    <div class="paused" id="pausedLayer" hidden>
+      <b>مکث</b>
+      <button class="btn btn-primary btn-lg" id="resumeBtn"><svg><use href="#i-play"/></svg>ادامه</button>
+    </div>
     <div class="toast" id="toast" role="status"></div>
   </section>
 
   <!-- ============ REVIEW ============ -->
   <section class="screen" data-screen="review">
-    <header class="topbar">
-      <button class="icon-btn" data-go="home" aria-label="خانه"><svg><use href="#i-close"/></svg></button>
-      <span></span>
-      <button class="icon-btn" data-open="settings" aria-label="تنظیمات"><svg><use href="#i-gear"/></svg></button>
+    <header class="topbar page-top">
+      <button class="icon-btn round" data-go="home" aria-label="خانه"><svg><use href="#i-close"/></svg></button>
+      <img class="page-logo center" src="img/logo-mark.png" alt="" aria-hidden="true" width="40" height="47">
+      <button class="icon-btn round" data-open="settings" aria-label="تنظیمات"><svg><use href="#i-gear"/></svg></button>
     </header>
     <main class="review">
       <p class="kicker" id="reviewKicker">کارنامه</p>
@@ -287,7 +345,7 @@
       </div>
       <div class="word-wall" id="wordWall"></div>
       <div class="review-actions">
-        <button class="btn btn-primary btn-lg" id="replaySame"><svg><use href="#i-redo"/></svg>دوباره با همین کلمه‌ها</button>
+        <button class="btn btn-primary btn-lg drip" id="replaySame"><svg><use href="#i-redo"/></svg><span>دوباره با همین کلمه‌ها</span><svg class="drips" aria-hidden="true"><use href="#drips"/></svg></button>
         <button class="btn btn-ghost" id="replayNew"><svg><use href="#i-shuffle"/></svg>کلمه‌های جدید</button>
         <button class="btn btn-ghost" id="toSetup">تغییر تنظیمات</button>
       </div>
@@ -296,10 +354,10 @@
 
   <!-- ============ STATS ============ -->
   <section class="screen" data-screen="stats">
-    <header class="topbar">
-      <button class="icon-btn" data-go="home" aria-label="برگشت"><svg><use href="#i-back"/></svg></button>
-      <h2 class="setup-title">آمار</h2>
-      <span></span>
+    <header class="topbar page-top">
+      <button class="icon-btn round" data-go="home" aria-label="برگشت"><svg><use href="#i-back"/></svg></button>
+      <div class="page-title"><h2 class="setup-title">آمار</h2><p>زنجیره و کارنامه‌ی تو</p></div>
+      <img class="page-logo" src="img/logo-mark.png" alt="" aria-hidden="true" width="40" height="47">
     </header>
     <main class="stats-page">
       <div class="streak-hero">
@@ -330,7 +388,7 @@
   <!-- ============ DIALOGS ============ -->
   <dialog class="sheet" id="settingsDlg">
     <form method="dialog" class="sheet-inner">
-      <header class="sheet-head"><h3>تنظیمات</h3><button class="icon-btn" value="close" aria-label="بستن"><svg><use href="#i-close"/></svg></button></header>
+      <header class="sheet-head"><h3>تنظیمات</h3><button class="icon-btn round" value="close" aria-label="بستن"><svg><use href="#i-close"/></svg></button></header>
       <div class="sheet-body">
         <h4>تم</h4>
         <div class="theme-cards" id="themeCards"></div>
@@ -357,7 +415,7 @@
 
   <dialog class="sheet" id="uploadDlg">
     <form method="dialog" class="sheet-inner">
-      <header class="sheet-head"><h3>بیت خودت</h3><button class="icon-btn" value="cancel" aria-label="بستن"><svg><use href="#i-close"/></svg></button></header>
+      <header class="sheet-head"><h3>بیت خودت</h3><button class="icon-btn round" value="cancel" aria-label="بستن"><svg><use href="#i-close"/></svg></button></header>
       <div class="sheet-body">
         <div class="analyzing" id="analyzing"><span class="spinner"></span>دارم به بیت گوش می‌دم…</div>
         <div id="uploadForm" hidden>
@@ -365,7 +423,7 @@
           <div class="up-grid">
             <div>
               <span class="up-label">سرعت (BPM)</span>
-              <div class="stepper">
+              <div class="stepper-num">
                 <button type="button" class="icon-btn sm" data-upbpm="-0.5" aria-label="کمتر"><svg><use href="#i-minus"/></svg></button>
                 <input type="number" id="upBpm" min="50" max="200" step="0.1" inputmode="decimal">
                 <button type="button" class="icon-btn sm" data-upbpm="0.5" aria-label="بیشتر"><svg><use href="#i-plus"/></svg></button>
@@ -377,7 +435,7 @@
             </div>
             <div>
               <span class="up-label">شروع ضرب اول</span>
-              <div class="stepper">
+              <div class="stepper-num">
                 <button type="button" class="icon-btn sm" data-upoff="-0.01" aria-label="زودتر"><svg><use href="#i-minus"/></svg></button>
                 <output id="upOffset">۰</output>
                 <button type="button" class="icon-btn sm" data-upoff="0.01" aria-label="دیرتر"><svg><use href="#i-plus"/></svg></button>

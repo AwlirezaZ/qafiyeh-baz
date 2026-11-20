@@ -4,7 +4,7 @@
  * - Fonts, icons, beat MP3s: cache first → fast, and offline after the first play.
  * Bump VERSION to drop old caches.
  */
-const VERSION = "v5";
+const VERSION = "v6";
 const SHELL = `qb-shell-${VERSION}`;
 const MEDIA = `qb-media-${VERSION}`;
 
@@ -15,7 +15,11 @@ const PRECACHE = [
   "fonts/vazirmatn-arabic-4.woff2", "fonts/vazirmatn-latin-5.woff2",
   "fonts/lalezar-arabic-0.woff2", "fonts/lalezar-latin-1.woff2",
   "fonts/reem-kufi-arabic-2.woff2", "fonts/reem-kufi-latin-3.woff2",
-  "icons/icon-192.png", "icons/icon-512.png", "icons/favicon-32.png"
+  "fonts/Peyda-Regular.ttf", "fonts/Peyda-Medium.ttf", "fonts/Peyda-SemiBold.ttf", "fonts/Peyda-ExtraBold.ttf",
+  "fonts/AbarMidFaNum-Bold.ttf", "fonts/AbarMidFaNum-Black.ttf",
+  "img/logo-mark.png", "img/bg-spotlight.webp", "img/bg-cypher.webp",
+  "img/genre-boombap.webp", "img/genre-trap.webp", "img/genre-chill.webp",
+  "icons/icon-192.png", "icons/icon-512.png", "icons/favicon-32.png", "icons/favicon-light-32.png"
 ];
 
 self.addEventListener("install", (e) => {
@@ -39,7 +43,7 @@ self.addEventListener("fetch", (e) => {
   const linkedBeat = LINKED_BEAT_HOSTS.indexOf(url.hostname) >= 0 && /\.(mp3|ogg|wav)$/i.test(url.pathname);
   if (url.origin !== location.origin && !linkedBeat) return;
 
-  const isMedia = linkedBeat || /\.(woff2|png|mp3|wav|m4a|ogg)$/i.test(url.pathname);
+  const isMedia = linkedBeat || /\.(woff2|ttf|png|webp|mp3|wav|m4a|ogg)$/i.test(url.pathname);
   if (isMedia && !req.headers.has("range")) {
     e.respondWith(
       caches.open(MEDIA).then((c) => c.match(req).then((hit) => hit || fetch(req).then((res) => {

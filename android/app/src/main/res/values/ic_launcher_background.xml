@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ic_launcher_background">#FF5B1F</color>
-    <color name="qb_bg">#0F0F0E</color>
-    <color name="qb_accent">#FF5B1F</color>
+    <color name="ic_launcher_background">#2A0019</color>
+    <color name="qb_bg">#0A0A0B</color>
+    <color name="qb_accent">#FF4D67</color>
 </resources>
