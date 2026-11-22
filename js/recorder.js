@@ -88,6 +88,7 @@
       var self = this;
       rec.ondataavailable = function (e) { if (e.data && e.data.size) self.chunks.push(e.data); };
       rec.start(1000);
+      this.startedAt = performance.now(); this.pausedMs = 0;
       this.running = true;
       (function loop() {
         if (!self.running) return;
@@ -97,8 +98,12 @@
       return true;
     },
 
-    pause: function () { try { if (this.rec && this.rec.state === "recording") this.rec.pause(); } catch (e) {} },
-    resume: function () { try { if (this.rec && this.rec.state === "paused") this.rec.resume(); } catch (e) {} },
+    pause: function () {
+      try { if (this.rec && this.rec.state === "recording") { this.rec.pause(); this.pausedAt = performance.now(); } } catch (e) {}
+    },
+    resume: function () {
+      try { if (this.rec && this.rec.state === "paused") { this.rec.resume(); this.pausedMs += performance.now() - this.pausedAt; } } catch (e) {}
+    },
 
     /* stop after a short tail; resolves with { blob, url, ext, mime } */
     stop: function () {
@@ -109,10 +114,15 @@
           self.running = false;
           self.rec.onstop = function () {
             var type = (self.rec.mimeType || self.mime || "video/webm").split(";")[0];
-            var blob = new Blob(self.chunks, { type: type });
             var ext = type.indexOf("mp4") >= 0 ? "mp4" : "webm";
+            var ms = performance.now() - self.startedAt - self.pausedMs;
+            var raw = new Blob(self.chunks, { type: type });
             self.cleanup();
-            resolve(blob.size ? { blob: blob, url: URL.createObjectURL(blob), ext: ext, mime: type } : null);
+            if (!raw.size) { resolve(null); return; }
+            // the recorder writes the header before it knows the length → write the real length in
+            R.fixDuration(raw, ms).then(function (blob) {
+              resolve({ blob: blob, url: URL.createObjectURL(blob), ext: ext, mime: type });
+            });
           };
           try { self.rec.stop(); } catch (e) { self.cleanup(); resolve(null); }
         }, Math.round(this.delay * 1000) + 400);
@@ -248,5 +258,157 @@
         }
       }
     }
+  };
+
+  /* ---------- write the real length into the recorded file ----------
+     MediaRecorder streams the file out while recording, so its header never gets the final length:
+     Chrome's MP4 says 0 for the movie and ~the first fragment for each track; its WebM has no Duration.
+     Gallery apps trust those fields ("3 seconds" while the video plays to the end).
+     MP4: real track lengths are summed from the fragments (moof/traf), then mvhd/tkhd/mdhd are patched
+          and an mehd box is added. WebM: a Duration element is added to the Segment Info.
+     Any parsing problem → the original file is used unchanged. */
+  function boxList(dv, start, end) {
+    var out = [], p = start;
+    while (p + 8 <= end) {
+      var size = dv.getUint32(p), hdr = 8;
+      var type = String.fromCharCode(dv.getUint8(p + 4), dv.getUint8(p + 5), dv.getUint8(p + 6), dv.getUint8(p + 7));
+      if (size === 1) { size = dv.getUint32(p + 8) * 4294967296 + dv.getUint32(p + 12); hdr = 16; }
+      else if (size === 0) size = end - p;
+      if (size < hdr || p + size > end) break;
+      out.push({ type: type, start: p, size: size, hdr: hdr });
+      p += size;
+    }
+    return out;
+  }
+  function kids(dv, box) { return boxList(dv, box.start + box.hdr, box.start + box.size); }
+  function first(list, type) { for (var i = 0; i < list.length; i++) if (list[i].type === type) return list[i]; return null; }
+  function all(list, type) { return list.filter(function (b) { return b.type === type; }); }
+  function u64(dv, p) { return dv.getUint32(p) * 4294967296 + dv.getUint32(p + 4); }
+
+  function fixMp4(buf, ms) {
+    var dv = new DataView(buf), top = boxList(dv, 0, buf.byteLength);
+    var moov = first(top, "moov"); if (!moov || moov.hdr !== 8) return null;
+    var mk = kids(dv, moov), mvhd = first(mk, "mvhd"), mvex = first(mk, "mvex");
+    if (!mvhd) return null;
+    var mv = dv.getUint8(mvhd.start + 8), movieTs = dv.getUint32(mvhd.start + 8 + (mv ? 20 : 12));
+    var tracks = {}, defDur = {};
+    all(mk, "trak").forEach(function (trak) {
+      var tk = kids(dv, trak), tkhd = first(tk, "tkhd"), mdia = first(tk, "mdia"); if (!tkhd || !mdia) return;
+      var mdhd = first(kids(dv, mdia), "mdhd"); if (!mdhd) return;
+      var tv = dv.getUint8(tkhd.start + 8), id = dv.getUint32(tkhd.start + 8 + (tv ? 20 : 12));
+      var hv = dv.getUint8(mdhd.start + 8);
+      tracks[id] = { tkhd: tkhd, tv: tv, mdhd: mdhd, hv: hv, ts: dv.getUint32(mdhd.start + 8 + (hv ? 20 : 12)), end: 0 };
+    });
+    if (mvex) all(kids(dv, mvex), "trex").forEach(function (t) { defDur[dv.getUint32(t.start + 12)] = dv.getUint32(t.start + 20); });
+    var absOffsets = [];   // tfhd base_data_offset fields (absolute positions) that move if we insert bytes
+    all(top, "moof").forEach(function (moof) {
+      all(kids(dv, moof), "traf").forEach(function (traf) {
+        var tk = kids(dv, traf), tfhd = first(tk, "tfhd"), tfdt = first(tk, "tfdt"); if (!tfhd) return;
+        var fl = dv.getUint32(tfhd.start + 8) & 0xffffff, id = dv.getUint32(tfhd.start + 12), p = tfhd.start + 16;
+        if (fl & 1) { absOffsets.push(p); p += 8; }
+        if (fl & 2) p += 4;
+        var dDur = (fl & 8) ? dv.getUint32(p) : (defDur[id] || 0);
+        var base = 0;
+        if (tfdt) base = dv.getUint8(tfdt.start + 8) ? u64(dv, tfdt.start + 12) : dv.getUint32(tfdt.start + 12);
+        var sum = 0;
+        all(tk, "trun").forEach(function (trun) {
+          var f = dv.getUint32(trun.start + 8) & 0xffffff, n = dv.getUint32(trun.start + 12), q = trun.start + 16;
+          if (f & 1) q += 4;
+          if (f & 4) q += 4;
+          var per = ((f & 0x100) ? 4 : 0) + ((f & 0x200) ? 4 : 0) + ((f & 0x400) ? 4 : 0) + ((f & 0x800) ? 4 : 0);
+          for (var i = 0; i < n; i++) { sum += (f & 0x100) ? dv.getUint32(q) : dDur; q += per; }
+        });
+        if (tracks[id]) tracks[id].end = Math.max(tracks[id].end, base + sum);
+      });
+    });
+    var movieDur = 0;
+    Object.keys(tracks).forEach(function (id) {
+      var t = tracks[id];
+      var secs = t.end > 0 && t.ts ? t.end / t.ts : ms / 1000;
+      var mediaDur = Math.round(secs * t.ts), trackDur = Math.round(secs * movieTs);
+      movieDur = Math.max(movieDur, trackDur);
+      if (t.hv) { dv.setUint32(t.mdhd.start + 32, Math.floor(mediaDur / 4294967296)); dv.setUint32(t.mdhd.start + 36, mediaDur >>> 0); }
+      else dv.setUint32(t.mdhd.start + 24, mediaDur >>> 0);
+      if (t.tv) { dv.setUint32(t.tkhd.start + 36, Math.floor(trackDur / 4294967296)); dv.setUint32(t.tkhd.start + 40, trackDur >>> 0); }
+      else dv.setUint32(t.tkhd.start + 28, trackDur >>> 0);
+    });
+    if (!movieDur) movieDur = Math.round(ms / 1000 * movieTs);
+    if (mv) { dv.setUint32(mvhd.start + 32, Math.floor(movieDur / 4294967296)); dv.setUint32(mvhd.start + 36, movieDur >>> 0); }
+    else dv.setUint32(mvhd.start + 24, movieDur >>> 0);
+    // fragmented files: players read the total from mehd (Movie Extends Header)
+    if (!mvex || mvex.hdr !== 8) return new Blob([buf]);
+    var mehd = first(kids(dv, mvex), "mehd");
+    if (mehd) { dv.setUint32(mehd.start + 12, movieDur >>> 0); return new Blob([buf]); }
+    var add = new DataView(new ArrayBuffer(16));
+    add.setUint32(0, 16); add.setUint8(4, 0x6d); add.setUint8(5, 0x65); add.setUint8(6, 0x68); add.setUint8(7, 0x64);   // "mehd"
+    add.setUint32(8, 0); add.setUint32(12, movieDur >>> 0);
+    dv.setUint32(moov.start, moov.size + 16);
+    dv.setUint32(mvex.start, mvex.size + 16);
+    absOffsets.forEach(function (p) { var v = u64(dv, p) + 16; dv.setUint32(p, Math.floor(v / 4294967296)); dv.setUint32(p + 4, v >>> 0); });
+    var at = mvex.start + 8;
+    return new Blob([buf.slice(0, at), add.buffer, buf.slice(at)]);
+  }
+
+  /* EBML (WebM) helpers */
+  function vint(u, p) {
+    var b = u[p], len = 1, mask = 0x80;
+    while (len <= 8 && !(b & mask)) { mask >>= 1; len++; }
+    if (len > 8) return null;
+    var val = b & (mask - 1), ones = val === mask - 1;
+    for (var i = 1; i < len; i++) { val = val * 256 + u[p + i]; if (u[p + i] !== 255) ones = false; }
+    return { len: len, val: val, unknown: ones };
+  }
+  function idLen(b) { return b & 0x80 ? 1 : b & 0x40 ? 2 : b & 0x20 ? 3 : 4; }
+  function fixWebm(buf, ms) {
+    var u = new Uint8Array(buf), p = 0;
+    // EBML header
+    if (u[0] !== 0x1a || u[1] !== 0x45) return null;
+    var h = vint(u, 4); p = 4 + h.len + h.val;
+    // Segment
+    if (!(u[p] === 0x18 && u[p + 1] === 0x53 && u[p + 2] === 0x80 && u[p + 3] === 0x67)) return null;
+    var segSize = vint(u, p + 4), segSizeAt = p + 4, q = p + 4 + segSize.len;
+    for (var guard = 0; guard < 32 && q < u.length; guard++) {
+      var il = idLen(u[q]), id = 0;
+      for (var k = 0; k < il; k++) id = id * 256 + u[q + k];
+      var sz = vint(u, q + il); if (!sz) return null;
+      var bodyAt = q + il + sz.len;
+      if (id === 0x1549a966) {                                   // Info
+        var r = bodyAt, end = bodyAt + sz.val, scale = 1000000;
+        while (r < end) {
+          var cl = idLen(u[r]), cid = 0;
+          for (var j = 0; j < cl; j++) cid = cid * 256 + u[r + j];
+          var cs = vint(u, r + cl), cb = r + cl + cs.len;
+          if (cid === 0x2ad7b1) { scale = 0; for (var m = 0; m < cs.val; m++) scale = scale * 256 + u[cb + m]; }
+          if (cid === 0x4489) return null;                         // already has a Duration — leave it
+          r = cb + cs.val;
+        }
+        var dur = new DataView(new ArrayBuffer(11));
+        dur.setUint8(0, 0x44); dur.setUint8(1, 0x89); dur.setUint8(2, 0x88);
+        dur.setFloat64(3, ms * 1e6 / (scale || 1000000));
+        // rewrite Info with an 8-byte size field (valid EBML, any length fits)
+        var newSize = sz.val + 11, head = new Uint8Array(4 + 8);
+        head.set(u.subarray(q, q + 4), 0); head[4] = 0x01;
+        for (var b = 0, v = newSize; b < 7; b++) { head[11 - b] = v % 256; v = Math.floor(v / 256); }
+        var grow = head.length + newSize - (il + sz.len + sz.val);
+        if (!segSize.unknown) {                                    // known Segment size → grow it (same width)
+          var nv = segSize.val + grow, w = segSize.len;
+          if (nv >= Math.pow(2, 7 * w) - 1) return null;
+          for (var s = w - 1; s >= 0; s--) { u[segSizeAt + s] = nv % 256; nv = Math.floor(nv / 256); }
+          u[segSizeAt] |= 0x80 >> (w - 1);
+        }
+        return new Blob([buf.slice(0, q), head, buf.slice(bodyAt, end), dur.buffer, buf.slice(end)]);
+      }
+      if (sz.unknown) return null;
+      q = bodyAt + sz.val;
+    }
+    return null;
+  }
+
+  R.fixDuration = function (blob, ms) {
+    return blob.arrayBuffer().then(function (buf) {
+      var fixed = null;
+      try { fixed = /mp4/.test(blob.type) ? fixMp4(buf, ms) : fixWebm(buf, ms); } catch (e) { fixed = null; }
+      return fixed ? new Blob([fixed], { type: blob.type }) : blob;
+    }).catch(function () { return blob; });
   };
 })();
