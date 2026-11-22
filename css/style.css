@@ -864,7 +864,7 @@ input[type="range"] { accent-color: var(--accent); width: 100%; }
 .install-btn, .streak-chip {
   display: inline-flex; align-items: center; gap: 6px; height: 44px; padding: 0 14px;
   background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius); color: var(--text);
-  font-weight: 700; font-size: 15px;
+  font-weight: 700; font-size: 15px; white-space: nowrap;
 }
 .install-btn:hover, .streak-chip:hover { border-color: var(--text); }
 .install-btn svg { width: 18px; height: 18px; color: var(--accent); }
