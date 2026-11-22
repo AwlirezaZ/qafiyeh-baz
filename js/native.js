@@ -63,29 +63,21 @@
     });
   };
 
-  /* save a recorded video where the gallery can see it: Movies/Qafiyeh-Baz.
-     (Android 11+ needs no permission for this; Android 10 and older ask once.)
-     The file is first built in the app's cache (chunk by chunk, like sharing), then copied to Movies in one
-     step: Android's media index reads a gallery file when it's first closed, so writing it there in chunks
-     left the gallery with only the first chunk (~3 s). Falls back to Documents/Qafiyeh-Baz.
-     Resolves to the folder used. */
+  /* save a recorded video into the gallery (album Movies/Qafiyeh-Baz).
+     The video is built in the app's cache (chunk by chunk, like sharing), then our own GallerySaver plugin
+     (android/…/GallerySaverPlugin.java) registers it with Android's media library. Plain file writes into
+     Movies either got indexed after the first chunk only (~3 s) or not at all.
+     Android 10+ needs no permission; Android 7–9 ask once for storage. Resolves to the folder used. */
   N.saveFile = function (blob, name) {
-    var tmp = "save-" + name;
-    function copyTo(folder, directory) {
-      return call("Filesystem", "mkdir", { path: folder, directory: directory, recursive: true }).catch(function () {})
-        .then(function () {
-          return call("Filesystem", "copy", { from: tmp, directory: "CACHE", to: folder + "/" + name, toDirectory: directory });
-        });
-    }
+    var tmp = "save-" + name, mime = (blob.type || "video/mp4").split(";")[0];
+    function cleanup() { call("Filesystem", "deleteFile", { path: tmp, directory: "CACHE" }).catch(function () {}); }
     return writeBlob(blob, tmp, "CACHE")
-      .then(function () { return call("Filesystem", "requestPermissions").catch(function () {}); })
-      .then(function () { return copyTo("Movies/Qafiyeh-Baz", "EXTERNAL_STORAGE"); })
-      .then(function () { return "Movies/Qafiyeh-Baz"; }, function () {
-        return copyTo("Qafiyeh-Baz", "DOCUMENTS").then(function () { return "Documents/Qafiyeh-Baz"; });
+      .then(function (file) {
+        return call("Filesystem", "requestPermissions").catch(function () {}).then(function () {
+          return call("GallerySaver", "saveVideo", { path: file.uri, name: name, mime: mime, album: "Qafiyeh-Baz" });
+        });
       })
-      .then(function (where) {
-        call("Filesystem", "deleteFile", { path: tmp, directory: "CACHE" }).catch(function () {});
-        return where;
-      });
+      .then(function (r) { cleanup(); return (r && r.folder) || "Movies/Qafiyeh-Baz"; },
+            function (e) { cleanup(); throw e; });
   };
 })();
