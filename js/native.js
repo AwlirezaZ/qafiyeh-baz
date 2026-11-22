@@ -65,13 +65,27 @@
 
   /* save a recorded video where the gallery can see it: Movies/Qafiyeh-Baz.
      (Android 11+ needs no permission for this; Android 10 and older ask once.)
-     Falls back to Documents/Qafiyeh-Baz if Movies isn't writable. Resolves to the folder used. */
+     The file is first built in the app's cache (chunk by chunk, like sharing), then copied to Movies in one
+     step: Android's media index reads a gallery file when it's first closed, so writing it there in chunks
+     left the gallery with only the first chunk (~3 s). Falls back to Documents/Qafiyeh-Baz.
+     Resolves to the folder used. */
   N.saveFile = function (blob, name) {
-    return call("Filesystem", "requestPermissions").catch(function () {})
-      .then(function () { return writeBlob(blob, "Movies/Qafiyeh-Baz/" + name, "EXTERNAL_STORAGE"); })
-      .then(function () { return "Movies/Qafiyeh-Baz"; })
-      .catch(function () {
-        return writeBlob(blob, "Qafiyeh-Baz/" + name, "DOCUMENTS").then(function () { return "Documents/Qafiyeh-Baz"; });
+    var tmp = "save-" + name;
+    function copyTo(folder, directory) {
+      return call("Filesystem", "mkdir", { path: folder, directory: directory, recursive: true }).catch(function () {})
+        .then(function () {
+          return call("Filesystem", "copy", { from: tmp, directory: "CACHE", to: folder + "/" + name, toDirectory: directory });
+        });
+    }
+    return writeBlob(blob, tmp, "CACHE")
+      .then(function () { return call("Filesystem", "requestPermissions").catch(function () {}); })
+      .then(function () { return copyTo("Movies/Qafiyeh-Baz", "EXTERNAL_STORAGE"); })
+      .then(function () { return "Movies/Qafiyeh-Baz"; }, function () {
+        return copyTo("Qafiyeh-Baz", "DOCUMENTS").then(function () { return "Documents/Qafiyeh-Baz"; });
+      })
+      .then(function (where) {
+        call("Filesystem", "deleteFile", { path: tmp, directory: "CACHE" }).catch(function () {});
+        return where;
       });
   };
 })();

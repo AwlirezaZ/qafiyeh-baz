@@ -892,7 +892,8 @@
     if (!r) { box.hidden = true; globalToast("ضبط ویدیو انجام نشد"); return; }
     if (recUrl) URL.revokeObjectURL(recUrl);
     recUrl = r.url;
-    var name = "qafiyeh-baz-" + Stats.dayKey() + "." + r.ext;
+    var now = new Date(), hms = [now.getHours(), now.getMinutes(), now.getSeconds()].map(function (n) { return (n < 10 ? "0" : "") + n; }).join("");
+    var name = "qafiyeh-baz-" + Stats.dayKey() + "-" + hms + "." + r.ext;   // unique, so a second take never clashes with the first
     recFile = new File([r.blob], name, { type: r.mime });
     $("#recVideo").src = r.url;
     $("#recSave").href = r.url;
