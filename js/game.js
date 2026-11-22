@@ -149,6 +149,8 @@
     root.appendChild(this.ball);
     this.lastBeat = -99;
     this.measure();
+    var self = this;
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { self.refit(); });
   }
   Grid.prototype.reset = function (gen, totalBars) {
     var self = this;
@@ -163,6 +165,7 @@
     this.rowH = h / ROWS;
     this.root.style.setProperty("--row-h", this.rowH + "px");
     this.cx = null;
+    if (this.rows) this.refit();
   };
   Grid.prototype.cellCenters = function (row) {
     var cells = row.children[1].children, base = this.root.getBoundingClientRect(), out = [];
@@ -209,7 +212,23 @@
     else if (end) { row.classList.add("end"); label.textContent = ""; }
     else label.textContent = QB.pad2(g);
     this.root.appendChild(row);
+    fitWord(cells.children[3]);
     return row;
+  };
+  /* shrink a rhyme word until it fits its pill (never cut it off) */
+  function fitWord(cell) {
+    var w = cell && cell.querySelector(".word");
+    if (!w) return;
+    w.style.fontSize = "";
+    var avail = cell.clientWidth - 6, need = w.scrollWidth;
+    if (need > avail && avail > 0) {
+      var fs = parseFloat(getComputedStyle(w).fontSize);
+      w.style.fontSize = Math.max(14, Math.floor(fs * avail / need)) + "px";
+    }
+  }
+  Grid.prototype.refit = function () {
+    var self = this;
+    Object.keys(this.rows).forEach(function (k) { fitWord(self.rows[k].children[1].children[3]); });
   };
   function easeInOut(x) { return x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2; }
 

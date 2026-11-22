@@ -681,6 +681,7 @@ body[data-screen="home"] .page-photo, body[data-screen="game"] .page-photo { dis
 }
 .row-num { width: 30px; flex: none; display: flex; align-items: center; justify-content: center; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .cells { flex: 1; display: grid; grid-template-columns: 1fr 1fr 1fr 2.1fr; gap: 10px; }
+.cells > .cell { min-width: 0; }   /* keep the column width; long words shrink (Grid.fitWord) instead of widening the pill */
 .cell {
   position: relative; display: grid; place-items: center;
   background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius);
@@ -690,10 +691,12 @@ body[data-screen="home"] .page-photo, body[data-screen="game"] .page-photo { dis
 .row.now .cell.beat { border-color: color-mix(in srgb, var(--text) 35%, var(--line)); }
 .row.now .cell.beat i { background: var(--muted); }
 .cell.rhyme { background: var(--rc); border-color: var(--rc); color: var(--on-r); }
+/* the whole word always shows: no clipping (dots above/below letters need room — ق vs ف),
+   and long words are shrunk to fit by Grid.fitWord instead of being cut with "…" */
 .cell.rhyme .word {
   font-family: var(--font-display); font-weight: var(--display-weight);
-  font-size: clamp(22px, calc(var(--row-h, 96px) * .38), 44px); line-height: 1; padding: 0 8px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+  font-size: clamp(22px, calc(var(--row-h, 96px) * .38), 44px); line-height: 1.6; padding: 0 10px;
+  white-space: nowrap; overflow: visible;
 }
 .cell.rhyme.long .word { font-size: clamp(18px, calc(var(--row-h, 96px) * .3), 34px); }
 .cell.hidden-word { background: transparent; border: 2px dashed var(--rc); color: var(--rc); }
@@ -984,7 +987,7 @@ input[type="range"] { accent-color: var(--accent); width: 100%; }
 /* game: rhyme words become dripping pills; the three free beats are dots on a line */
 [data-theme="street"] .row-num { display: none; }
 [data-theme="street"] .game-top .scheme-viz { display: none; }
-[data-theme="street"] .cells { gap: 0; grid-template-columns: 1fr 1fr 1fr 1.9fr; }
+[data-theme="street"] .cells { gap: 0; grid-template-columns: 1fr 1fr 1fr 2.3fr; }
 [data-theme="street"] .cell { border-radius: 999px; }
 [data-theme="street"] .cell.beat {
   background: linear-gradient(var(--lc, rgba(255,255,255,.28)), var(--lc, rgba(255,255,255,.28))) center / 100% 2px no-repeat;
